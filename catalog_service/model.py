@@ -1,15 +1,18 @@
 class Book:
-    def __init__(self,book_id,book_name,book_author,book_ammount,book_availability,book_metadata):
-        self.book_id = book_id
-        self.book_name = book_name
-        self.book_author = book_author
-        self.book_ammount = book_ammount
-        self.book_availability = book_availability
-        self.book_metadata = book_metadata
+    def __init__(self, book_id, title, author, isbn, total_count, available_count):
+        self.id = book_id
+        self.title = title
+        self.author = author
+        self.isbn = isbn
+        self.total_count = total_count
+        self.available_count = available_count
+
     def to_json(self):
-        return {"book_id": self.book_id,
-                "book_name": self.book_name,
-                "book_author": self.book_author,
-                "book_ammount": self.book_ammount,
-                "book_availability": self.book_availability,
-                "book_metadata": self.book_metadata}
+        return {
+            "id": self.id,
+            "title": self.title,
+            "author": self.author,
+            "isbn": self.isbn,
+            "total_copies": self.total_count,
+            "available_copies" : self.available_count
+        }
