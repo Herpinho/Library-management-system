@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS public.books (
-    book_id SERIAL PRIMARY KEY, -- Use SERIAL instead of manual sequences
+    book_id SERIAL PRIMARY KEY, 
     title VARCHAR(255) NOT NULL,
     author VARCHAR(255) NOT NULL,
     isbn VARCHAR(20) UNIQUE,
@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS public.books (
 );
 
 CREATE TABLE IF NOT EXISTS public.book_copies (
-    copy_id SERIAL PRIMARY KEY,
-    book_id INTEGER REFERENCES public.books(book_id) ON DELETE CASCADE, -- Important for data cleanup!
+    copy_id VARCHAR(50) PRIMARY KEY, 
+    book_id INTEGER REFERENCES public.books(book_id) ON DELETE CASCADE,
     status VARCHAR(20) DEFAULT 'available'
 );

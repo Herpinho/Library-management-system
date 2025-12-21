@@ -1,4 +1,4 @@
-import psycopg2
+
 from flask import Flask, request, jsonify
 from model import Book
 from pathlib import Path
@@ -34,6 +34,47 @@ def get_all_books():
     cursor.close()
     link.close()
     return jsonify(books)
+
+@app.route('/books/<int:book_id>', methods=['GET'])
+def get_book_json(book_id):
+    try:
+        book_obj = get_book(book_id)
+        if book_obj:
+            return jsonify(book_obj.to_json()), 200
+        return jsonify({"error": f"book {book_id} not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+def get_book(book_id):
+    link = get_db_connection(Path(__file__).parent.name.replace("_service", ""))
+    cursor = link.cursor()
+    try:
+        cursor.execute(
+            """
+                SELECT
+                    b.book_id,
+                    b.title,
+                    b.author,
+                    b.isbn,
+                    COUNT(c.copy_id) as total_copies,
+                    COALESCE(SUM(CASE WHEN c.status = 'available' THEN 1 ELSE 0 END), 0) as available_copies
+                FROM public.books b                         
+                LEFT JOIN public.book_copies c               
+                    ON b.book_id = c.book_id
+                WHERE b.book_id = %s
+                GROUP BY b.book_id                            
+            """, (book_id,)
+        )
+        row = cursor.fetchone()
+        if not row or row[0] is None:
+            return None
+        return Book(row[0],row[1],row[2],row[3],row[4],row[5])
+
+    except Exception as e:
+        print(f"Database error: {e}")
+        raise e 
+    finally:
+        cursor.close()
+        link.close()
 @app.route('/books', methods = ['POST']) #ADD A BOOK
 def add_book ():
     if check := admin_check(user_id=request.headers.get('User-ID'),password_hash=request.headers.get('Password_Hash')): return check    ##ADMIN COMMAND
@@ -59,19 +100,24 @@ def add_copy(book_id):
     if check := admin_check(user_id=request.headers.get('User-ID'),password_hash=request.headers.get('Password_Hash')): return check
     link = get_db_connection(Path(__file__).parent.name.replace("_service", ""))
     cursor = link.cursor()
-
-    cursor.execute(
-        'INSERT INTO book_copies (book_id, status) VALUES (%s, %s) RETURNING copy_id',
-        (book_id,'available')
-    )
-    copy_id = cursor.fetchone()[0]
-    link.commit()
-    cursor.close()
-    link.close()
-
-    return jsonify ({"message":"Copy successfully created","copy_id": copy_id}),201
-@app.route('/books/<int:book_id>/copy',methods = ['DELETE']) #REMOVE A COPY
-def remove_copy(copy_id):
+    try:
+        cursor.execute('SELECT COUNT(*) FROM book_copies WHERE book_id = %s', (book_id,))
+        count = cursor.fetchone()[0]
+        new_copy_id = f"{book_id}.{count+1}"
+        cursor.execute(
+            'INSERT INTO book_copies (book_id,copy_id, status) VALUES (%s, %s, %s) RETURNING copy_id',
+            (book_id,new_copy_id,'available')
+        )
+        copy_id = cursor.fetchone()[0]
+        link.commit()
+        return jsonify ({"message":"Copy successfully created","copy_id": copy_id}),201
+    except Exception as e:
+        return jsonify({"error":str(e)}),500
+    finally:
+        cursor.close()
+        link.close()
+@app.route('/books/<int:book_id>/copy/<int:copy_id>',methods = ['DELETE']) #REMOVE A COPY
+def remove_copy(book_id,copy_id):
     if check := admin_check(user_id=request.headers.get('User-ID'),password_hash=request.headers.get('Password_Hash')): return check
     link = get_db_connection(Path(__file__).parent.name.replace("_service", ""))
     cursor = link.cursor()
@@ -93,7 +139,11 @@ def change_availability(book_id,copy_id):
 
     if check := admin_check(user_id=request.headers.get('User-ID'),password_hash=request.headers.get('Password_Hash')): return check
     data = request.json
-    new_status = data.get('status', 'available')
+    status = data['status']
+    if not status:
+        new_status = data.get('status', 'available')
+    else: new_status = status
+
     link = get_db_connection(Path(__file__).parent.name.replace("_service",""))
     cursor = link.cursor()
     try:

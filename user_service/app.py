@@ -10,7 +10,7 @@ from shared_utils import *
 
 app = Flask(__name__)
 
-@app.route('/register',methods=['POST']) #REGISTER
+@app.route('/users/register', methods=['POST']) #REGISTER
 def register():
     data = request.json
     if not data or not data.get('username') or not data.get('password') or not data.get('email'):
@@ -43,7 +43,7 @@ def register():
     finally:
         if link:
             link.close()
-@app.route('/login', methods = ['POST'])
+@app.route('/users/login', methods = ['POST']) #LOGIN
 def login():
     data = request.json
     if not data or not data.get('username') or not data.get('password'):
@@ -68,7 +68,7 @@ def login():
     finally:
         if link:
             link.close()
-@app.route('/users/<int:id>',methods=['GET']) #GET INFO
+@app.route('/users/<int:id>', methods=['GET']) #GET INFO
 def get_user(id):
     if request.headers.get('User-ID') and int(request.headers.get('User-ID')) == id: ##user id 3 can only acess its own information, admins can access everyone's.
         pass
@@ -85,6 +85,53 @@ def get_user(id):
         user = User(row[0],row[1],row[2],row[3],row[4],row[5])
         return jsonify(user.to_json())
     return jsonify({"error": "User does not exist."}), 404
+@app.route('/users/<int:id>', methods = ['DELETE']) #delete user
+def delete_user(id):
+    if check := admin_check(user_id=request.headers.get('User-ID'), password_hash=request.headers.get('Password-Hash')): return check
+    link = get_db_connection(Path(__file__).parent.name.replace("_service",""))
+    cursor = link.cursor()
+    try:   
+        cursor.execute('SELECT user_id FROM users WHERE user_id = %s', (id,))
+        if cursor.fetchone() is None:
+            return jsonify({"error":"user_id was not found."}),404
+        cursor.execute('DELETE FROM users WHERE user_id = %s', (id,))
+        link.commit()
+        return jsonify({"message":f"user {id} successfully removed"}),200
+    except Exception as e:
+        link.rollback()
+        return jsonify({"error":str(e)}),500
+    finally:
+        cursor.close()
+        link.close()
+@app.route('/users',methods = ['GET'])
+def get_all_users():
+    if check := admin_check(user_id=request.headers.get('User-ID'),password_hash=request.headers.get('Password_Hash')): return check    ##ADMIN COMMAND
+    link = get_db_connection(Path(__file__).parent.name.replace("_service", ""))
+    cursor = link.cursor()
+    try:
+        cursor.execute(
+        '''
+        SELECT
+            u.user_id,
+            u.username,
+            u.email,
+            u.role,
+            u.created_at
+        FROM users u
+        GROUP BY u.user_id
+        '''
+        )
+        rows = cursor.fetchall()
+        users = []
+        for row in rows:
+            user_obj = User(row[0],row[1],row[2],row[3],row[4])
+            users.append(user_obj.to_json())
+        return jsonify(users);200
+    except Exception as e:
+        return jsonify({"error":str(e)}),500
+    finally:
+        cursor.close()
+        link.close()
 
 
 if __name__ == "__main__":
