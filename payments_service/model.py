@@ -5,7 +5,7 @@ class Payment:
         self.loan_id = loan_id
         self.amount = amount
         self.status = status #pending,completed,cancelled,failed
-        self.transaction_id = transaction_id
+        self.transaction_id = transaction_id 
 
     def to_json(self):
         return {

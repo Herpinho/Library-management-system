@@ -6,6 +6,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 from shared_utils import *
 from flask import Flask, request, jsonify
 from model import Loan
+
 def get_loan_object(loan_id):
     # This logic belongs in its own function so both routes can use it
     link = get_db_connection(Path(__file__).parent.name.replace("_service", ""))
@@ -77,7 +78,8 @@ def new_loan():
     link = get_db_connection(Path(__file__).parent.name.replace("_service",""))
     cursor = link.cursor()
     amount,unit = data.get('due_date').split()
-    due_date = datetime.now().date() + calculate_due_date(int(amount),unit)
+    days = calculate_due_date(int(amount),unit)
+    due_date = datetime.now().date() + days
     try:
         book_data = get_book(book_id=str(data['copy_id']).split('.')[0])
         if book_data.get('available_copies', 0 ) > 0:
@@ -85,10 +87,32 @@ def new_loan():
                 'INSERT INTO loans (copy_id, user_id, due_date, status) VALUES (%s,%s,%s,%s) RETURNING loan_id',
                 (data['copy_id'],data['user_id'],due_date,data.get('status') or 'active'),
             )
-            print(due_date)
             new_id = cursor.fetchone()[0]
-            link.commit()
-            return jsonify({"message":"Loan added","id":new_id}),201
+            response = requests.get(f"http://localhost:5002/copy/",json={"copy_id" : str(data['copy_id'])})
+            copy_data = response.json()
+            if response.status_code ==200:
+
+                print(response.json()[1])
+                price = float(copy_data[1])*days.days
+                
+                requests.post("http://localhost:5004/payments",json={
+                    "user_id" : data['user_id'],
+                    "loan_id" : new_id,
+                    "amount"  : price
+                },
+                headers = {
+                'User-ID': request.headers.get('User-ID'),
+                'Password-Hash': request.headers.get('Password-Hash')
+                })
+                link.commit()
+                return jsonify({"message":"Loan added","id":new_id}),201
+            if response.status_code != 200:
+                return jsonify({
+                    "error": "Copy Service failed", 
+                    "status": response.status_code,
+                    "details": response.text  # This will show the real error!
+                }), response.status_code
+            return jsonify({"error":"something went wrong, idk what loan service app line 100"})
     except Exception as e:
         return jsonify({"error":str(e)}),500
     finally:
@@ -187,9 +211,26 @@ def modify_loan(loan_id):
 def warning_system():
     pass
     ##email user warning that they're book is expired 1-2 days before 
-def fine_system():
-    pass
-    #start a counter on fines p/day
+def fine_system(loan_id):
+    link = get_db_connection(Path(__file__).parent.name.replace("_service", ""))
+    cursor = link.cursor()
+    try: 
+        cursor.execute('''
+                    SELECT 
+                       l.loan_id
+                       l.due_date
+                    FROM loans l
+                    GROUP BY l.loan_id
+                       ''')
+        return timedelta(days=(datetime.now().date() - cursor.fetchone()[1]))*0.02
+    except:
+        return jsonify({"error":"loan not found."})
+    finally:
+        cursor.close()
+        link.close()
+
+
+
 def user_card_checkup():
     pass
     #not sure yet what it means but i added this in the project notes.

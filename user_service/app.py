@@ -132,7 +132,5 @@ def get_all_users():
     finally:
         cursor.close()
         link.close()
-
-
 if __name__ == "__main__":
     app.run(debug=True,port=5001)

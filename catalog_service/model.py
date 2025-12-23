@@ -17,13 +17,15 @@ class Book:
             "available_copies" : self.available_count
         }
 class BookCopy:
-    def __init__(self, copy_id, book_id, status):
+    def __init__(self, copy_id, book_id, status,rent_price):
         self.copy_id = copy_id
         self.book_id = book_id
         self.status = status
+        self.rent_price = rent_price
 
     def to_json(self):
         return {
             "display_id": f"{self.book_id}.{self.copy_id}", 
-            "status": self.status
+            "status": self.status,
+            "rent price" : self.rent_price
         }

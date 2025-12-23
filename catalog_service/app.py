@@ -95,18 +95,20 @@ def add_book ():
     finally:
         cursor.close()
         link.close()
-@app.route('/books/<int:book_id>/copy', methods =['POST']) #ADD A COPY
+@app.route('/<int:book_id>/copy/', methods =['POST']) #ADD A COPY
 def add_copy(book_id):
     if check := admin_check(user_id=request.headers.get('User-ID'),password_hash=request.headers.get('Password_Hash')): return check
     link = get_db_connection(Path(__file__).parent.name.replace("_service", ""))
     cursor = link.cursor()
     try:
         cursor.execute('SELECT COUNT(*) FROM book_copies WHERE book_id = %s', (book_id,))
+        data = request.json
+        rent_price = data['rent_price']
         count = cursor.fetchone()[0]
         new_copy_id = f"{book_id}.{count+1}"
         cursor.execute(
-            'INSERT INTO book_copies (book_id,copy_id, status) VALUES (%s, %s, %s) RETURNING copy_id',
-            (book_id,new_copy_id,'available')
+            'INSERT INTO book_copies (book_id,copy_id, status,rent_price) VALUES (%s, %s, %s,%s) RETURNING copy_id',
+            (book_id,new_copy_id,'available',rent_price,)
         )
         copy_id = cursor.fetchone()[0]
         link.commit()
@@ -116,8 +118,8 @@ def add_copy(book_id):
     finally:
         cursor.close()
         link.close()
-@app.route('/books/<int:book_id>/copy/<int:copy_id>',methods = ['DELETE']) #REMOVE A COPY
-def remove_copy(book_id,copy_id):
+@app.route('/copy/<int:copy_id>',methods = ['DELETE']) #REMOVE A COPY
+def remove_copy(copy_id):
     if check := admin_check(user_id=request.headers.get('User-ID'),password_hash=request.headers.get('Password_Hash')): return check
     link = get_db_connection(Path(__file__).parent.name.replace("_service", ""))
     cursor = link.cursor()
@@ -134,12 +136,12 @@ def remove_copy(book_id,copy_id):
     finally:
         cursor.close()
         link.close()
-@app.route('/books/<int:book_id>/copy/<int:copy_id>', methods = ['PUT']) #UPDATE COPY AVAILABILITY
-def change_availability(book_id,copy_id):
-
+@app.route('/copy/', methods = ['PUT']) #UPDATE COPY AVAILABILITY
+def change_availability():
     if check := admin_check(user_id=request.headers.get('User-ID'),password_hash=request.headers.get('Password_Hash')): return check
     data = request.json
     status = data['status']
+    copy_id = data['copy_id']
     if not status:
         new_status = data.get('status', 'available')
     else: new_status = status
@@ -159,7 +161,24 @@ def change_availability(book_id,copy_id):
     finally:
         cursor.close()
         link.close()
-
+@app.route('/copy/', methods = ['GET'])
+def get_copy():
+    link = get_db_connection(Path(__file__).parent.name.replace("_service",""))
+    cursor = link.cursor()
+    data = request.json
+    copy_id = data['copy_id']
+    try:
+        cursor.execute('SELECT status,rent_price FROM book_copies WHERE copy_id = %s',(copy_id,))
+        copy = cursor.fetchone()
+        if not copy:
+            return jsonify({"error":'copy id not found.'}),404
+        return jsonify(copy)
+    except Exception as e:
+        return jsonify({"error":str(e)}),500
+    finally:
+        cursor.close()
+        link.close()        
+        
 if __name__ == '__main__':
     
     app.run(debug=True, port = 5002)
