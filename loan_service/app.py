@@ -81,38 +81,35 @@ def new_loan():
     days = calculate_due_date(int(amount),unit)
     due_date = datetime.now().date() + days
     try:
-        book_data = get_book(book_id=str(data['copy_id']).split('.')[0])
-        if book_data.get('available_copies', 0 ) > 0:
+        response = requests.get(f"http://localhost:5002/copy/",json={"copy_id" : str(data['copy_id'])})
+        copy_data = response.json()
+        if copy_data[0] == 'available':
             cursor.execute(
                 'INSERT INTO loans (copy_id, user_id, due_date, status) VALUES (%s,%s,%s,%s) RETURNING loan_id',
-                (data['copy_id'],data['user_id'],due_date,data.get('status') or 'active'),
+                (str(data['copy_id']),data['user_id'],due_date,data.get('status') or 'active'),
             )
             new_id = cursor.fetchone()[0]
-            response = requests.get(f"http://localhost:5002/copy/",json={"copy_id" : str(data['copy_id'])})
-            copy_data = response.json()
-            if response.status_code ==200:
 
-                print(response.json()[1])
+            if response.status_code ==200:
                 price = float(copy_data[1])*days.days
-                
+                print(price)
                 requests.post("http://localhost:5004/payments",json={
                     "user_id" : data['user_id'],
                     "loan_id" : new_id,
-                    "amount"  : price
+                    "amount"  : str(price)
                 },
                 headers = {
                 'User-ID': request.headers.get('User-ID'),
                 'Password-Hash': request.headers.get('Password-Hash')
                 })
+                requests.put(f"http://localhost:5002/copy/", json={"copy_id": str(data['copy_id']), "status": "loaned"}, headers= {
+                'User-ID': request.headers.get('User-ID'),
+                'Password-Hash': request.headers.get('Password-Hash')
+                })
                 link.commit()
+                
                 return jsonify({"message":"Loan added","id":new_id}),201
-            if response.status_code != 200:
-                return jsonify({
-                    "error": "Copy Service failed", 
-                    "status": response.status_code,
-                    "details": response.text  # This will show the real error!
-                }), response.status_code
-            return jsonify({"error":"something went wrong, idk what loan service app line 100"})
+        return jsonify({"error":"Book copy is unavailable"})
     except Exception as e:
         return jsonify({"error":str(e)}),500
     finally:
@@ -146,8 +143,8 @@ def get_loan(loan_id):
             '''
             SELECT
                 l.loan_id,
-                l.user_id,
                 l.copy_id,
+                l.user_id,
                 l.loan_date,
                 l.due_date,
                 l.return_date,
@@ -158,7 +155,10 @@ def get_loan(loan_id):
         )
         row = cursor.fetchone()
         if not row or row[0] is None:
-            return None
+            return jsonify({"error":"loan id not found."})
+        if datetime.now().date() > row[4]:
+            row[6] = 'overdue'
+            cursor.execute("UPDATE ")
         loan_obj = Loan(*row)
         return jsonify(loan_obj.to_json()),200
     except Exception as e:
@@ -169,29 +169,68 @@ def get_loan(loan_id):
 @app.route('/loans/<int:loan_id>', methods = ['PUT']) #update loan 
 def modify_loan(loan_id):
     if check := admin_check(user_id=request.headers.get('User-ID'),password_hash=request.headers.get('Password_Hash')): return check
+    headers = {'User-ID' : request.headers.get('User-ID'), 'Password-Hash' : request.headers.get('Password_Hash')}
     data = request.json
     link = get_db_connection(Path(__file__).parent.name.replace("_service", ""))
     cursor = link.cursor()
     try:
-        cursor.execute('SELECT loan_id,status,due_date FROM loans WHERE loan_id = %s',(loan_id,))
-        current_loan = cursor.fetchone()
-        if current_loan is None:
-            return jsonify({"error":"loan id not found."}),404
-        if data.get('return_date') == "today":
-            return_date = datetime.now().date()
-        else: return_date = ""
-        if data.get('due_date'):
-            parts = data['due_date'].split()
-            if len(parts)==2:   
-                amount = int(parts[0])
-                unit = parts[1]
-                new_due_date = current_loan[2] + calculate_due_date(amount, unit)
+        cursor.execute('SELECT loan_id,status,due_date,copy_id FROM loans WHERE loan_id = %s',(loan_id,))
+        payment = requests.get(f'http://localhost:5004/payments', json = { "loan_id" : loan_id}, headers=headers )
+        current_payment = payment.json()
 
+        payment_id = current_payment['payment_id']
+        payment_amount = current_payment['amount']
+        current_loan = cursor.fetchone()
+        
+        if not current_loan:
+            return jsonify({"error":"loan id not found."}),404
+        new_due_date = current_loan[2]
+        status = None
+        return_date = None
+        today = datetime.now().date()
+        if data.get('return_date') == "today":
+            return_date = today
+            if today > current_loan[2]:
+                status = 'overdue'
+            else:
+                status = 'returned'
+            requests.put(f"http://localhost:5004/payments/{payment_id}/complete",json = {
+                "transaction_id" : "today"
+            },headers=headers)
+
+        else: return_date = None
+        if not data.get('due_date') == "":
+            if datetime.now().date() < current_loan[2]:
+                parts = data['due_date'].split()
+                if len(parts)==2:  
+                    reduction, extra = 0, 0 
+                    amount = int(parts[0])
+                    unit = parts[1]
+                    time = calculate_due_date(amount, unit)
+                    new_due_date = current_loan[2] + time
+                    copy = requests.get("http://localhost:5002/copy/",json = {
+                        "copy_id" : current_loan[3]
+                    })
+                    copy_data = copy.json()
+                    price = float(copy_data[1])
+
+                    if amount < 0:
+                        reduction = float(-(price*0.5))
+                    else:
+                        extra = float(price*1.1)
+                    requests.put(f"http://localhost:5004/payments/{payment_id}", json = {
+                    "status": "",
+                    "tx_id": "",
+                    "amount": float(payment_amount + (reduction + extra)*amount)
+                    },headers=headers)
+            else:
+                return jsonify({"error":"loan is already overdue."})
+                
         cursor.execute('''
                     UPDATE loans 
                     SET due_date = %s, return_date = %s, status = %s
                     WHERE loan_id = %s''',
-                       (new_due_date or current_loan[2],return_date or None , data['status'] or current_loan[1],loan_id))
+                       (new_due_date or current_loan[2],return_date or None , status or data['status'] or current_loan[1],loan_id))
         link.commit()
         if data['status'] == 'returned' or not data['return_date'] == None: 
             cursor.execute('SELECT copy_id FROM loans where loan_id = %s',(loan_id,))
@@ -210,30 +249,40 @@ def modify_loan(loan_id):
         link.close()
 def warning_system():
     pass
-    ##email user warning that they're book is expired 1-2 days before 
-def fine_system(loan_id):
+    ##email user warning that they're book is expiring 1-2 days before 
+    ##day 2 how does one email via python 
+@app.route('/fines' , methods = ['GET']) # get fines if necessary
+def fine_system():
+    data = request.json
+    loan_id = data['loan_id']
+    copy_id = data['copy_id']
     link = get_db_connection(Path(__file__).parent.name.replace("_service", ""))
     cursor = link.cursor()
     try: 
         cursor.execute('''
                     SELECT 
-                       l.loan_id
+                       l.loan_id,
                        l.due_date
-                    FROM loans l
+                    FROM loans l WHERE loan_id = %s
                     GROUP BY l.loan_id
-                       ''')
-        return timedelta(days=(datetime.now().date() - cursor.fetchone()[1]))*0.02
-    except:
-        return jsonify({"error":"loan not found."})
+                       ''', (loan_id,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({"error":"loan not found."}),404
+        response = requests.get("http://localhost:5002/copy/", json= {"copy_id": copy_id})
+        copy_data = response.json()
+        due_date = row[1]
+        delta = datetime.now().date() - due_date
+        return jsonify({"fine" : delta.days * copy_data['rent_price']})
+    except Exception as e:
+        return jsonify({"error":str(e)}),500
     finally:
         cursor.close()
         link.close()
-
-
-
 def user_card_checkup():
     pass
     #not sure yet what it means but i added this in the project notes.
+    #day 2 of not knowing what to do with this, the whole thing feels physical.
 if __name__ == '__main__':   
     app.run(debug=True, port = 5003)                           
 

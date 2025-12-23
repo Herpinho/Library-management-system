@@ -132,5 +132,26 @@ def get_all_users():
     finally:
         cursor.close()
         link.close()
+@app.route('/users', methods = ['PUT'])
+def modify_user():
+    if check := admin_check(user_id=request.headers.get('User-ID'), password_hash=request.headers.get('Password-Hash')): return check
+    link = get_db_connection(Path(__file__).parent.name.replace("_service",""))
+    cursor = link.cursor()
+    data = request.json
+    user_id = data['user_id']
+    cursor.execute('SELECT * FROM users WHERE user_id = %s',(user_id))
+    user_data = cursor.fetchone()
+
+    
+    cursor.execute('UPDATE users SET username = %s, email = %s, password_hash = %s,role = %s WHERE user_id = %s' 
+                    (
+        data['new_username'] or user_data[1],
+          data['new_email'] or user_data[2],
+            generate_password_hash(data['new_password']) or user_data[3],
+              data['new_role'] or user_data[4],
+                    )
+                  )
+    
+
 if __name__ == "__main__":
     app.run(debug=True,port=5001)
