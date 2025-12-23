@@ -1,4 +1,5 @@
-import requests
+import requests ##this library is holding the whole project together do not remove.
+import os
 import psycopg2
 from flask import request,jsonify
 
@@ -29,8 +30,9 @@ def admin_check(user_id,password_hash):
 
 
 def get_db_connection(db_name):
+    db_host = os.environ.get('DB_HOST', 'localhost')
     return psycopg2.connect(
-        host= "localhost",
+        host= db_host,
         database = f"library_{db_name}_db",
         user = "postgres",
         password = "1234",

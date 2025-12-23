@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: library
+    ports:
+      - "5432:5432"
+
+
+  user_service:
+    build: ./user_service
+    ports:
+      - "5001:5001"
+    depends_on:
+      - db
+    environment:
+      - DB_HOST=db
+
+  catalog_service:
+    build: ./catalog_service
+    ports:
+      - "5002:5002"
+    depends_on:
+      - db
+    environment:
+      - DB_HOST=db
+
+  loan_service:
+    build: ./loan_service
+    ports:
+      - "5003:5003"
+    depends_on:
+      - db
+    environment:
+      - DB_HOST=db
+
+  payment_service:
+    build: ./payment_service
+    ports:
+      - "5004:5004"
+    depends_on:
+      - db
+    environment:
+      - DB_HOST=db
