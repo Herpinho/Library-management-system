@@ -273,7 +273,7 @@ def fine_system():
         copy_data = response.json()
         due_date = row[1]
         delta = datetime.now().date() - due_date
-        return jsonify({"fine" : delta.days * copy_data['rent_price']})
+        return jsonify({"fine" : max(0,delta.days) * copy_data['rent_price']})
     except Exception as e:
         return jsonify({"error":str(e)}),500
     finally:

@@ -145,7 +145,7 @@ def change_availability():
     if not status:
         new_status = data.get('status', 'available')
     else: new_status = status
-
+    
     link = get_db_connection(Path(__file__).parent.name.replace("_service",""))
     cursor = link.cursor()
     try:
