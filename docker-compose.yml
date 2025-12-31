@@ -1,48 +1,136 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:latest
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: 1234
-      POSTGRES_DB: library
-    ports:
-      - "5432:5432"
-
-
   user_service:
-    build: ./user_service
+    build: 
+      context: .
+      dockerfile: user_service/Dockerfile
     ports:
       - "5001:5001"
     depends_on:
-      - db
+      - postgres_users
     environment:
-      - DB_HOST=db
+      - DB_NAME=user_db
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - DB_HOST=postgres_users
+      - DB_PORT=5432
+    networks:
+      - library-net
+  postgres_users:
+    image: postgres:15
+    volumes:
+      - ./user_service/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - user_data:/var/lib/postgresql/data
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: user_db
+    ports:
+      - "5432:5432"
+    networks:
+      - "library-net"
+
 
   catalog_service:
-    build: ./catalog_service
+    build:
+      context: .
+      dockerfile: catalog_service/Dockerfile
     ports:
       - "5002:5002"
-    depends_on:
-      - db
+    networks:
+      - library-net
     environment:
-      - DB_HOST=db
+      DB_HOST: postgres_catalog
+      DB_PORT: 5432
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_NAME: catalog_db
+    depends_on:
+      - postgres_catalog
 
+  postgres_catalog:
+    image: postgres:15
+    volumes:
+      - ./catalog_service/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - catalog_data:/var/lib/postgresql/data
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: catalog_db
+    ports:
+      - "5434:5432"
+    networks:
+      - library-net
   loan_service:
-    build: ./loan_service
+    build:
+      context: .
+      dockerfile: loan_service/Dockerfile
     ports:
       - "5003:5003"
-    depends_on:
-      - db
+    networks:
+      - library-net
     environment:
-      - DB_HOST=db
+      DB_HOST: postgres_loan
+      DB_PORT: 5432
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_NAME: loan_db
+    depends_on:
+      - postgres_loan
 
-  payment_service:
-    build: ./payment_service
+  postgres_loan:
+    image: postgres:15
+    volumes:
+      - ./loan_service/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - loan_data:/var/lib/postgresql/data
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: loan_db
+    ports:
+      - "5436:5432"
+    networks:
+      - library-net
+  payments_service:
+    build:
+      context: .
+      dockerfile: payments_service/Dockerfile
     ports:
       - "5004:5004"
-    depends_on:
-      - db
+    networks:
+      - library-net
     environment:
-      - DB_HOST=db
+      DB_HOST: postgres_payments
+      DB_PORT: 5432
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_NAME: payments_db
+    depends_on:
+      - postgres_payments
+
+  postgres_payments:
+    image: postgres:15
+    volumes:
+      - ./payments_service/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - payments_data:/var/lib/postgresql/data
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: payments_db
+    ports:
+      - "5438:5432"
+    networks:
+      - library-net
+networks:
+  library-net:
+    driver: bridge
+volumes:
+  user_data:
+  catalog_data:
+  loan_data:
+  payments_data:    

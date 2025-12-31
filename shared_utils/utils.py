@@ -3,7 +3,6 @@ import os
 import psycopg2
 from flask import request,jsonify
 
-USER_SERVICE_URL = "http://127.0.0.1:5001/users/"
 
 def admin_check(user_id,password_hash):
     if user_id:
@@ -15,7 +14,7 @@ def admin_check(user_id,password_hash):
     else:
         password_hash = request.headers.get('Password-Hash')
     try:
-        link = get_db_connection("user")
+        link = get_db_connection()
         cursor = link.cursor()
         cursor.execute('SELECT role,password_hash FROM users WHERE user_id = %s', (user_id,))
         row = cursor.fetchone()
@@ -29,12 +28,16 @@ def admin_check(user_id,password_hash):
         return jsonify({"error": f"{e}"})
 
 
-def get_db_connection(db_name):
-    db_host = os.environ.get('DB_HOST', 'localhost')
+def get_db_connection():
+    host = os.environ.get('DB_HOST', 'localhost')
+    port = os.environ.get('DB_PORT','5433')
+    password = os.environ.get('DB_PASSWORD','1234')
+    user = os.environ.get('DB_USER','postgres')
+    db_name = os.environ.get('DB_NAME')
     return psycopg2.connect(
-        host= db_host,
-        database = f"library_{db_name}_db",
-        user = "postgres",
-        password = "1234",
-        port = "5433"
+        host=host,
+        database=db_name,
+        user=user,
+        password=password,
+        port=port
     )
