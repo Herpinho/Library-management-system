@@ -12,8 +12,7 @@ def register():
     data = request.json
     password_hash = generate_password_hash(data['password'])
     role = data.get('role') if data.get('role') else 'member'
-    if role == 'admin':
-        if check := admin_check(user_id=request.headers.get('User-ID'),password_hash=request.headers.get('Password_Hash')): return check 
+
     link = None
     try:
         link = get_db_connection()
@@ -50,10 +49,7 @@ def login():
         cursor.close()
         if row: 
             if check_password_hash(row[3],data['password']):
-                user = User(row[0], row[1], row[2], row[3], row[4])
-                return jsonify ({"ID" : row[0],
-                                 "Password" : row[3],
-                                 "message":"Logged in!","user": user.to_json()}),200
+                return jsonify({"message":"Logged in!", "ID": row[0], "Password": row[3]}),200
             return jsonify({"error":"Wrong name or password"}),250
     except Exception as e:
         return jsonify({"error":str(e)}),500

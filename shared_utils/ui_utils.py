@@ -1,6 +1,6 @@
 import sys
 CMD_WIDTH = 232
-
+import json
 def chat_bubble(message, align="left"):
 
     big_line = 0
@@ -33,13 +33,19 @@ def user_input():
     sys.stdout.write("\033[F\033[K")
     sys.stdout.flush()
     return user_input
-def message_formatter(response,type="error"):
-    data = response.json()
-    if type == "error" and response.status_code == (200 or 201):
-        type = "message"
-    json = data.get(f'{type}')
-    formatted_message = f"{type.capitalize()}\n{json}"
-    return formatted_message.strip()
+def message_formatter(response):
+    try:
+        data = response.json()
+
+        for key,value in data.items():
+            if key in ['message','error']:
+                return str(f"""
+                            {key.capitalize()}
+            {value}                            
+            """)
+    except Exception as e:
+        return e
+    
 def json_formatter(response):
     data = response.json()
     formatted_message = ""
