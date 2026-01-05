@@ -241,6 +241,157 @@ Change due date
             change_str = input()
             requests.put(f"{LOAN_SERVICE}/loans/{loan_id}", json = {"due_date": change_str,"return_date": "","status":""})
 def catalog_menu():
+    chat_bubble("""
+    Catalog Menu
+            
+    Choose an option:
+        1) Browse Books
+        2) Search Books
+        3) View Book Details
+        4) Back
+    """)
+    try:
+        option = int(user_input())
+        chat_bubble(f"{option}", "right")
+    except:
+        catalog_menu()
+    match option:
+        case 1:
+            title("Library System - Browse Books")
+            browse_books()
+        case 2:
+            title("Library System - Search Books")
+            search_books()
+        case 3:
+            title("Library System - Book Details")
+            view_book_details()
+        case 4:
+            main_menu_user()
+
+def browse_books():
+    response = requests.get(f"{CATALOG_SERVICE}/books")
+    if response.status_code == 200:
+        books = response.json()
+        if books:
+            for book in books:
+                chat_bubble(f"""
+    Book ID: {book.get('book_id')}
+    Title: {book.get('title')}
+    Author: {book.get('author')}
+    Available Copies: {book.get('available_copies', 0)}
+    
+""")
+        else:
+            chat_bubble("No books found in the catalog.")
+    else:
+        chat_bubble(message_formatter(response))
+    
+    catalog_menu()
+
+def search_books():
+    chat_bubble("""
+    Search Books
+            
+    Search by:
+        1) Title
+        2) Author
+        3) Back
+    """)
+    try:
+        option = int(user_input())
+        chat_bubble(f"{option}", "right")
+    except:
+        search_books()
+    
+    if option == 4:
+        catalog_menu()
+        return
+    
+    search_term = ""
+    search_type = ""
+    
+    match option:
+        case 1:
+            chat_bubble("""
+    Search by Title
+    
+    Enter title:                              
+    """)
+            sys.stdout.write("\033[2F\033[19C")
+            sys.stdout.flush()
+            search_term = input()
+            search_type = "title"
+        case 2:
+            chat_bubble("""
+    Search by Author
+    
+    Enter author name:                              
+    """)
+            sys.stdout.write("\033[2F\033[21C")
+            sys.stdout.flush()
+            search_term = input()
+            search_type = "author"
+        case 3:
+
+    response = requests.get(f"{CATALOG_SERVICE}/books/search", params={search_type: search_term})
+    
+    if response.status_code == 200:
+        books = response.json()
+        if books:
+            for book in books:
+                chat_bubble(f"""
+    Book ID: {book.get('book_id')}
+    Title: {book.get('title')}
+    Author: {book.get('author')}
+    Available Copies: {book.get('available_copies', 0)}
+    
+""")
+        else:
+            chat_bubble(f"No books found matching '{search_term}'.")
+    else:
+        chat_bubble(message_formatter(response))
+    
+    catalog_menu()
+
+def view_book_details():
+    chat_bubble("""
+    View Book Details
+    
+    Enter Book ID:                              
+    """)
+    sys.stdout.write("\033[2F\033[17C")
+    sys.stdout.flush()
+    book_id = input()
+    print("\n\n")
+    
+    response = requests.get(f"{CATALOG_SERVICE}/books/{book_id}")
+    
+    if response.status_code == 200:
+        book = response.json()
+        
+        # Get copies information if available
+        copies_response = requests.get(f"{CATALOG_SERVICE}/books/{book_id}/copies")
+        copies_info = ""
+        
+        if copies_response.status_code == 200:
+            copies = copies_response.json()
+            copies_info = f"\n    Total Copies: {len(copies)}"
+            available = sum(1 for copy in copies if copy.get('status') == 'available')
+            copies_info += f"\n    Available: {available}"
+        
+        chat_bubble(f"""
+    Book Details
+    
+    ID: {book.get('book_id')}
+    Title: {book.get('title')}
+    Author: {book.get('author')}
+    Genre: {book.get('genre', 'N/A')}
+    Publication Year: {book.get('publication_year', 'N/A')}
+    Publisher: {book.get('publisher', 'N/A')}{copies_info}
+    
+""")
+    else:
+        chat_bubble(message_formatter(response))
     pass
 def payments_menu():
     pass
