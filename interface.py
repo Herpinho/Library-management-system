@@ -303,7 +303,7 @@ def search_books():
     except:
         search_books()
     
-    if option == 4:
+    if option == 3:
         catalog_menu()
         return
     
@@ -331,8 +331,10 @@ def search_books():
             sys.stdout.flush()
             search_term = input()
             search_type = "author"
-        case 3:
-
+    
+    print("\n\n")
+    
+    # Perform search
     response = requests.get(f"{CATALOG_SERVICE}/books/search", params={search_type: search_term})
     
     if response.status_code == 200:
@@ -392,7 +394,8 @@ def view_book_details():
 """)
     else:
         chat_bubble(message_formatter(response))
-    pass
+    
+    catalog_menu()
 def payments_menu():
     pass
 def account_settings():
