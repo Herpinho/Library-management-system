@@ -245,10 +245,9 @@ def catalog_menu():
     Catalog Menu
             
     Choose an option:
-        1) Browse Books
-        2) Search Books
-        3) View Book Details
-        4) Back
+        1) Search Books
+        2) View Book Details
+        3) Back
     """)
     try:
         option = int(user_input())
@@ -257,37 +256,13 @@ def catalog_menu():
         catalog_menu()
     match option:
         case 1:
-            title("Library System - Browse Books")
-            browse_books()
-        case 2:
             title("Library System - Search Books")
             search_books()
-        case 3:
+        case 2:
             title("Library System - Book Details")
             view_book_details()
-        case 4:
+        case 3:
             main_menu_user()
-
-def browse_books():
-    response = requests.get(f"{CATALOG_SERVICE}/books")
-    if response.status_code == 200:
-        books = response.json()
-        if books:
-            for book in books:
-                chat_bubble(f"""
-    Book ID: {book.get('book_id')}
-    Title: {book.get('title')}
-    Author: {book.get('author')}
-    Available Copies: {book.get('available_copies', 0)}
-    
-""")
-        else:
-            chat_bubble("No books found in the catalog.")
-    else:
-        chat_bubble(message_formatter(response))
-    
-    catalog_menu()
-
 def search_books():
     chat_bubble("""
     Search Books
@@ -359,7 +334,7 @@ def view_book_details():
     chat_bubble("""
     View Book Details
     
-    Enter Book ID:                              
+    Book ID:                              
     """)
     sys.stdout.write("\033[2F\033[17C")
     sys.stdout.flush()
@@ -405,8 +380,7 @@ def main_menu_admin():
 
 if __name__ == "__main__": 
     while True:
-        log_menu()  
-
+        catalog_menu()  
 
 
 
