@@ -44,17 +44,24 @@ def login():
     try:
         link = get_db_connection()
         cursor = link.cursor()
-        cursor.execute('SELECT user_id, username, email, password_hash , role, created_at FROM users WHERE username = %s', (data['username'],))
+        cursor.execute('SELECT user_id, username, email, password_hash, role, created_at FROM users WHERE username = %s', (data['username'],))
         row = cursor.fetchone()
         cursor.close()
         if row: 
             if check_password_hash(row[3],data['password']):
-                return jsonify({"message":"Logged in!", "ID": row[0], "Password": row[3]}),200
+                return jsonify({
+                    "message": "Logged in!", 
+                    "ID": row[0], 
+                    "Password": row[3],
+                    "Role": row[4]  
+                }), 200
             return jsonify({"error":"Wrong name or password"}),250
+        return jsonify({"error":"Wrong name or password"}),250
     except Exception as e:
         return jsonify({"error":str(e)}),500
     finally:
-        link.close()
+        if link:
+            link.close()
 
 @user_blueprint.route('/<int:id>', methods=['GET'])
 def get_user(id):

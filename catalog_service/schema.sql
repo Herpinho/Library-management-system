@@ -3,6 +3,8 @@ CREATE TABLE IF NOT EXISTS public.books (
     title VARCHAR(255) NOT NULL,
     author VARCHAR(255) NOT NULL,
     isbn VARCHAR(20) UNIQUE,
+    genre VARCHAR(100),
+    publication_year INTEGER,
     available BOOLEAN DEFAULT true
 );
 
