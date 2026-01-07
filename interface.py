@@ -11,10 +11,10 @@ class UserSession:
     def get_session(self):
         return self.headers
 current_session = UserSession()
-USER_SERVICE = "http://localhost:5001"
-CATALOG_SERVICE = "http://localhost:5002"
-LOAN_SERVICE = "http://localhost:5003"
-PAYMENT_SERVICE = "http://localhost:5004"
+USER_SERVICE = "http://{HOST}:5001"
+CATALOG_SERVICE = "http://{HOST}:5002"
+LOAN_SERVICE = "http://{HOST}:5003"
+PAYMENT_SERVICE = "http://{HOST}:5004"
 def register_user():
     chat_bubble(
     """
@@ -90,22 +90,25 @@ Login
         password = getpass.getpass("")
     print("\n\n")
     data = {"username": username, "password": password}
-    request = requests.post(f"{USER_SERVICE}/users/login", json=data)
-    if request.status_code == 250:
+    try: 
+        request = requests.post(f"{USER_SERVICE}/users/login", json=data)
         chat_bubble(message_formatter(request))
-        login_user()
-    elif request.status_code == 200:
-        data = request.json()
-        
-        current_session.update_session(headers =
-                                        {"User-ID": str(data.get('ID')),
-                                         "Password": str(data.get('Password'))})
-        chat_bubble(message_formatter(request))
+        if request.status_code == 250:
+            chat_bubble(message_formatter(request))
+            login_user()
+        elif request.status_code == 200:
+            data = request.json()
+            
+            current_session.update_session(headers =
+                                            {"User-ID": str(data.get('ID')),
+                                            "Password": str(data.get('Password'))})
+            chat_bubble(message_formatter(request))
+            return True
+            
+            
 
-        
-
-    else:
-        chat_bubble(message_formatter(request))
+    except Exception as e:
+        chat_bubble(f"Error \n          couldnt connect to the server {str(e)}")
 def log_menu():
     chat_bubble("""
     Welcome to the Library
@@ -122,8 +125,10 @@ def log_menu():
         log_menu()
     match option:
         case 1:
-            login_user()
-            main_menu_user()
+            if login_user()==True:
+                main_menu_user()
+            else: 
+                login_user() 
         case 2:
             register_user()
             log_menu()
@@ -248,10 +253,8 @@ def account_settings():
     pass            
 def main_menu_admin():
     pass
-
 if __name__ == "__main__": 
-    while True:
-        log_menu()  
+    log_menu()  
 
 
 
