@@ -5,6 +5,89 @@ from shared_utils.utils import *
 
 book_blueprint = Blueprint('book_blueprint', __name__)
 
+import requests
+
+
+@book_blueprint.route('/import', methods=['POST'])
+def import_book_from_api():
+    if check := admin_check(user_id=request.headers.get('User-ID'), password_hash=request.headers.get('Password_Hash')): 
+        return check
+    
+    data = request.json
+    search_query = data.get('query')  
+    
+    if not search_query:
+        return jsonify({"error": "Search query is required"}), 400
+    
+    try:
+        api_url = f"https://www.googleapis.com/books/v1/volumes?q={search_query}"
+        response = requests.get(api_url)
+        
+        if response.status_code != 200:
+            return jsonify({"error": "Failed to connect to Google Books API"}), 500
+        
+        api_data = response.json()
+        
+        if 'items' not in api_data or len(api_data['items']) == 0:
+            return jsonify({"error": "No books found with that search term"}), 404
+        
+        book_info = api_data['items'][0]['volumeInfo']
+        
+        title = book_info.get('title', 'Unknown Title')
+        authors = book_info.get('authors', ['Unknown Author'])
+        author = ', '.join(authors)  
+        
+        isbn = None
+        if 'industryIdentifiers' in book_info:
+            for identifier in book_info['industryIdentifiers']:
+                if identifier['type'] in ['ISBN_13', 'ISBN_10']:
+                    isbn = identifier['identifier']
+                    break
+        
+        categories = book_info.get('categories', [])
+        genre = categories[0] if categories else None
+        
+        published_date = book_info.get('publishedDate', '')
+        publication_year = None
+        if published_date:
+            try:
+                publication_year = int(published_date.split('-')[0])  
+            except:
+                publication_year = None
+        
+        link = get_db_connection()
+        cursor = link.cursor()
+        
+        try:
+            cursor.execute(
+                'INSERT INTO books (title, author, isbn, genre, publication_year) VALUES (%s, %s, %s, %s, %s) RETURNING book_id',
+                (title, author, isbn, genre, publication_year)
+            )
+            new_id = cursor.fetchone()[0]
+            link.commit()
+            
+            return jsonify({
+                "message": "Book imported successfully",
+                "id": new_id,
+                "book": {
+                    "title": title,
+                    "author": author,
+                    "isbn": isbn,
+                    "genre": genre,
+                    "publication_year": publication_year
+                }
+            }), 201
+        except Exception as e:
+            link.rollback()
+            return jsonify({"error": f"Database error: {str(e)}"}), 500
+        finally:
+            cursor.close()
+            link.close()
+            
+    except Exception as e:
+        return jsonify({"error": f"API error: {str(e)}"}), 500
+
+
 def get_book_obj(book_id):
     link = get_db_connection()
     cursor = link.cursor()
@@ -258,7 +341,6 @@ def delete_book(book_id):
         if cursor.fetchone() is None:
             return jsonify({"error": "book_id not found."}), 404
         
-        # Por causa do ON DELETE CASCADE no schema, todas as cópias são automaticamente eliminadas
         cursor.execute('DELETE FROM books WHERE book_id = %s', (book_id,))
         link.commit()
         return jsonify({"message": f"Book {book_id} and all its copies successfully removed"}), 200

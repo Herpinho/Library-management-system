@@ -124,19 +124,41 @@ def modify_user():
     data = request.json
     user_id = data['user_id']
     try:
-        cursor.execute('SELECT * FROM users WHERE user_id = %s',(user_id,))
+        cursor.execute('SELECT username, email, password_hash, role FROM users WHERE user_id = %s',(user_id,))
         user_data = cursor.fetchone()
         if not user_data:
             return jsonify({"error": "User not found"}), 404
         
+        current_username = user_data[0]
+        current_email = user_data[1]
+        current_password_hash = user_data[2]
+        current_role = user_data[3]
+        
+        new_username = data.get('new_username')
+        new_email = data.get('new_email')
+        new_password = data.get('new_password')
+        new_role = data.get('new_role')
+        
+        if new_username and new_username == current_username:
+            return jsonify({"error": "New username is the same as current username"}), 400
+        
+        if new_email and new_email == current_email:
+            return jsonify({"error": "New email is the same as current email"}), 400
+        
+        if new_password and check_password_hash(current_password_hash, new_password):
+            return jsonify({"error": "New password is the same as current password"}), 400
+        
+        if new_role and new_role == current_role:
+            return jsonify({"error": "New role is the same as current role"}), 400
+        
         cursor.execute('UPDATE users SET username = %s, email = %s, password_hash = %s, role = %s WHERE user_id = %s', 
-            (data.get('new_username') or user_data[1],
-             data.get('new_email') or user_data[2],
-             generate_password_hash(data['new_password']) if data.get('new_password') else user_data[3],
-             data.get('new_role') or user_data[4],
+            (new_username or current_username,
+             new_email or current_email,
+             generate_password_hash(new_password) if new_password else current_password_hash,
+             new_role or current_role,
              user_id))
         link.commit()
-        return jsonify({"message": "User updated"}), 200
+        return jsonify({"message": "User updated successfully"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
