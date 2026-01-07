@@ -6,10 +6,11 @@ class User:
         self.role = role
         self.creation = creation
 
-
     def to_json(self):
-        return {"id" : self.id,
-                "name" : self.name,
-                "email" : self.email,
-                "role" : self.role,
-                "creation" : str(self.creation)}
+        return {
+            "id": self.id,
+            "name": self.name,
+            "email": self.email,
+            "role": self.role,
+            "creation": self.creation.strftime('%a, %d %b %Y') if hasattr(self.creation, 'strftime') else str(self.creation)
+        }
