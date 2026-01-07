@@ -71,6 +71,7 @@ def get_all_books():
 def search_books():
     title = request.args.get('title')
     author = request.args.get('author')
+    genre = request.args.get('genre')
     
     link = get_db_connection()
     cursor = link.cursor()
@@ -114,8 +115,27 @@ def search_books():
                 """,
                 (f'%{author}%',)
             )
+        elif genre:
+            cursor.execute(
+                """
+                    SELECT
+                        b.book_id,
+                        b.title,
+                        b.author,
+                        b.isbn,
+                        b.genre,
+                        b.publication_year,
+                        COUNT(c.copy_id) as total_copies,
+                        SUM(CASE WHEN c.status = 'available' THEN 1 ELSE 0 END) as available_copies
+                    FROM books b
+                    LEFT JOIN book_copies c ON b.book_id = c.book_id
+                    WHERE b.genre = %s
+                    GROUP BY b.book_id
+                """,
+                (genre,)
+            )
         else:
-            return jsonify({"error": "Please provide either title or author parameter"}), 400
+            return jsonify({"error": "Please provide title, author, or genre parameter"}), 400
         
         rows = cursor.fetchall()
         books = []
@@ -124,6 +144,29 @@ def search_books():
             books.append(book_obj.to_json())
         
         return jsonify(books), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        link.close()
+
+
+@book_blueprint.route('/genres', methods=['GET'])
+def get_genres():
+    link = get_db_connection()
+    cursor = link.cursor()
+    try:
+        cursor.execute(
+            """
+                SELECT DISTINCT genre 
+                FROM books 
+                WHERE genre IS NOT NULL 
+                ORDER BY genre
+            """
+        )
+        rows = cursor.fetchall()
+        genres = [row[0] for row in rows]
+        return jsonify(genres), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:

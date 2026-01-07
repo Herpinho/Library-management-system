@@ -303,15 +303,15 @@ Change due date
             
             change_str = input()
             requests.put(f"{LOAN_SERVICE}/loans/{loan_id}", json = {"due_date": change_str,"return_date": "","status":""})
+
 def catalog_menu():
     chat_bubble("""
     Catalog Menu
             
     Choose an option:
-        1) Add Book
-        2) Search Books
-        3) View Book Details
-        4) Back
+        1) Search Books
+        2) View Book Details
+        3) Back
     """)
     try:
         option = int(user_input())
@@ -320,15 +320,12 @@ def catalog_menu():
         catalog_menu()
     match option:
         case 1:
-            title("Library System - Add book")
-            add_book()
-        case 2:
             title("Library System - Search Books")
             search_books()
-        case 3:
+        case 2:
             title("Library System - Book Details")
             view_book_details()
-        case 4:
+        case 3:
             main_menu_user()
 
 def add_book():
@@ -382,7 +379,8 @@ def search_books():
     Search by:
         1) Title
         2) Author
-        3) Back
+        3) Genre
+        4) Back
     """)
     try:
         option = int(user_input())
@@ -391,7 +389,7 @@ def search_books():
         search_books()
         return
     
-    if option == 3:
+    if option == 4:
         catalog_menu()
         return
     
@@ -409,16 +407,63 @@ def search_books():
             sys.stdout.flush()
             search_term = input()
             search_type = "title"
+            
         case 2:
             chat_bubble("""
     Search by Author
     
     Enter author name:                                                                                      
     """)
-            sys.stdout.write("\033[2F\033[24C")
+            sys.stdout.write("\033[2F\033[21C")
             sys.stdout.flush()
             search_term = input()
             search_type = "author"
+            
+        case 3:
+            # Buscar lista de géneros
+            try:
+                genres_response = requests.get(f"{CATALOG_SERVICE}/books/genres")
+                if genres_response.status_code == 200:
+                    genres = genres_response.json()
+                    
+                    if not genres:
+                        chat_bubble("No genres found in the catalog.")
+                        search_books()
+                        return
+                    
+                    # Construir menu dinâmico com os géneros
+                    genre_menu = "    Select Genre\n\n"
+                    for idx, genre in enumerate(genres, 1):
+                        genre_menu += f"        {idx}) {genre}\n"
+                    genre_menu += f"        {len(genres)+1}) Back"
+                    
+                    chat_bubble(genre_menu)
+                    
+                    try:
+                        genre_choice = int(user_input())
+                        chat_bubble(f"{genre_choice}", "right")
+                        
+                        if genre_choice == len(genres) + 1:
+                            search_books()
+                            return
+                        elif 1 <= genre_choice <= len(genres):
+                            search_term = genres[genre_choice - 1]
+                            search_type = "genre"
+                        else:
+                            chat_bubble("Invalid option.")
+                            search_books()
+                            return
+                    except:
+                        search_books()
+                        return
+                else:
+                    chat_bubble("Error loading genres.")
+                    search_books()
+                    return
+            except Exception as e:
+                chat_bubble(f"Error: {str(e)}")
+                search_books()
+                return
     
     print("\n\n")
     
@@ -431,16 +476,16 @@ def search_books():
             if books:
                 for book in books:
                     chat_bubble(f"""
-        Book ID: {book.get('id')}
-        Title: {book.get('title')}
-        Author: {book.get('author')}
-        ISBN: {book.get('isbn', 'N/A')}
-        Genre: {book.get('genre', 'N/A')}
-        Publication Year: {book.get('publication_year', 'N/A')}
-        Total Copies: {book.get('total_copies', 0)}
-        Available Copies: {book.get('available_copies', 0)}
-        
-    """)
+    Book ID: {book.get('id')}
+    Title: {book.get('title')}
+    Author: {book.get('author')}
+    ISBN: {book.get('isbn', 'N/A')}
+    Genre: {book.get('genre', 'N/A')}
+    Publication Year: {book.get('publication_year', 'N/A')}
+    Total Copies: {book.get('total_copies', 0)}
+    Available Copies: {book.get('available_copies', 0)}
+    
+""")
             else:
                 chat_bubble(f"No books found matching '{search_term}'.")
         else:
