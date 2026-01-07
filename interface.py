@@ -24,10 +24,10 @@ class UserSession:
         return self.role == 'admin'
     
 current_session = UserSession()
-USER_SERVICE = "http://localhost:5001"
-CATALOG_SERVICE = "http://localhost:5002"
-LOAN_SERVICE = "http://localhost:5003"
-PAYMENT_SERVICE = "http://localhost:5004"
+USER_SERVICE = "http://{HOST}:5001"
+CATALOG_SERVICE = "http://{HOST}:5002"
+LOAN_SERVICE = "http://{HOST}:5003"
+PAYMENT_SERVICE = "http://{HOST}:5004"
 def register_user():
     chat_bubble(
     """
@@ -105,47 +105,25 @@ Login
     print("\n\n")
     
     data = {"username": username, "password": password}
-    response = requests.post(f"{USER_SERVICE}/users/login", json=data)
-    
-    # DEBUG: Vamos ver o que o backend está a retornar
-    print(f"\n=== DEBUG ===")
-    print(f"Status Code: {response.status_code}")
-    print(f"Response JSON: {response.json()}")
-    print(f"=============\n")
-    
-    if response.status_code == 250:
-        chat_bubble(message_formatter(response))
-        return False
-    elif response.status_code == 200:
-        data = response.json()
-        
-        # DEBUG: Ver o que estamos a receber
-        print(f"\n=== DEBUG ===")
-        print(f"ID: {data.get('ID')}")
-        print(f"Password: {data.get('Password')}")
-        print(f"Role: {data.get('Role')}")
-        print(f"=============\n")
-        
-        current_session.update_session(
-            headers={
-                "User-ID": str(data.get('ID')),
-                "Password-Hash": str(data.get('Password'))
-            },
-            role=data.get('Role')
-        )
-        
-        # DEBUG: Ver o que ficou guardado na sessão
-        print(f"\n=== DEBUG ===")
-        print(f"Session Role: {current_session.get_role()}")
-        print(f"Is Admin: {current_session.is_admin()}")
-        print(f"=============\n")
-        
-        chat_bubble(message_formatter(response))
-        return True
-    else:
-        chat_bubble(message_formatter(response))
-        return False
+    try: 
+        request = requests.post(f"{USER_SERVICE}/users/login", json=data)
+        chat_bubble(message_formatter(request))
+        if request.status_code == 250:
+            chat_bubble(message_formatter(request))
+            login_user()
+        elif request.status_code == 200:
+            data = request.json()
+            
+            current_session.update_session(headers =
+                                            {"User-ID": str(data.get('ID')),
+                                            "Password": str(data.get('Password'))})
+            chat_bubble(message_formatter(request))
+            return True
+            
+            
 
+    except Exception as e:
+        chat_bubble(f"Error \n          couldnt connect to the server {str(e)}")
 def log_menu():
     chat_bubble("""
     Welcome to the Library
@@ -164,13 +142,10 @@ def log_menu():
     
     match option:
         case 1:
-            if login_user():  # Se login for bem-sucedido
-                if current_session.is_admin():
-                    main_menu_admin()
-                else:
-                    main_menu_user()
-            else:
-                log_menu()  # Volta ao menu de login se falhar
+            if login_user()==True:
+                main_menu_user()
+            else: 
+                login_user() 
         case 2:
             register_user()
             log_menu()

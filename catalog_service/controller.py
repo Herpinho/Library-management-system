@@ -206,7 +206,6 @@ def add_book():
 
 @book_blueprint.route('/<int:book_id>/copy/', methods =['POST'])
 def add_copy(book_id):
-    if check := admin_check(user_id=request.headers.get('User-ID'),password_hash=request.headers.get('Password_Hash')): return check
     link = get_db_connection()
     cursor = link.cursor()
     try:
