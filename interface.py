@@ -289,6 +289,7 @@ Select a Loan to edit or press 0 to go back
 Select an action
     1) Return book
     2) Change due date
+    3) Return to menu
 """)    
     option = int(input())
     match option:
@@ -303,6 +304,8 @@ Change due date
             
             change_str = input()
             requests.put(f"{LOAN_SERVICE}/loans/{loan_id}", json = {"due_date": change_str,"return_date": "","status":""})
+        case 3:
+            main_menu_user()
 
 def catalog_menu():
     chat_bubble("""
@@ -533,7 +536,6 @@ def view_book_details():
     Author: {book.get('author')}
     Genre: {book.get('genre', 'N/A')}
     Publication Year: {book.get('publication_year', 'N/A')}
-    Publisher: {book.get('publisher', 'N/A')}{copies_info}
     
 """)
     else:
@@ -569,7 +571,7 @@ def view_payment_details():
     
     Enter Payment ID:                              
     """)
-    sys.stdout.write("\033[2F\033[20C")
+    sys.stdout.write("\033[2F\033[23C")
     sys.stdout.flush()
     payment_id = input()
     print("\n\n")
@@ -597,7 +599,7 @@ def view_payment_by_loan():
     
     Enter Loan ID:                              
     """)
-    sys.stdout.write("\033[2F\033[17C")
+    sys.stdout.write("\033[2F\033[20C")
     sys.stdout.flush()
     loan_id = input()
     print("\n\n")
@@ -670,7 +672,7 @@ def change_username():
     
     New Username:                              
     """)
-    sys.stdout.write("\033[2F\033[16C")
+    sys.stdout.write("\033[2F\033[19C")
     sys.stdout.flush()
     new_username = input()
     while not re.match(r'^[a-zA-Z0-9]{6,}', new_username):
@@ -694,7 +696,7 @@ def change_email():
     
     New Email:                              
     """)
-    sys.stdout.write("\033[2F\033[13C")
+    sys.stdout.write("\033[2F\033[16C")
     sys.stdout.flush()
     new_email = input()
     while not re.match(r'^[a-zA-Z0-9._]+@[a-zA-Z]+\.[a-zA-Z]{2,}$', new_email):
@@ -718,7 +720,7 @@ def change_password():
     
     New Password:                              
     """)
-    sys.stdout.write("\033[2F\033[16C")
+    sys.stdout.write("\033[2F\033[19C")
     sys.stdout.flush()
     new_password = getpass.getpass("")
     while not re.match(r'^[a-zA-Z0-9._%+\-!?"#$%&/()]{8,}$', new_password):
@@ -991,7 +993,7 @@ def view_all_loans():
     
     Enter User ID (or leave blank for all):                              
     """)
-    sys.stdout.write("\033[2F\033[42C")
+    sys.stdout.write("\033[2F\033[45C")
     sys.stdout.flush()
     user_id = input()
     print("\n\n")
