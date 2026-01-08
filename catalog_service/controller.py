@@ -87,7 +87,6 @@ def import_book_from_api():
     except Exception as e:
         return jsonify({"error": f"API error: {str(e)}"}), 500
 
-
 def get_book_obj(book_id):
     link = get_db_connection()
     cursor = link.cursor()
@@ -233,6 +232,136 @@ def search_books():
         cursor.close()
         link.close()
 
+@book_blueprint.route('/search_google', methods=['POST'])
+def search_google_books():
+    if check := admin_check(user_id=request.headers.get('User-ID'), password_hash=request.headers.get('Password_Hash')): 
+        return check
+    
+    data = request.json
+    search_query = data.get('query')
+    search_type = data.get('type', 'title')
+    language = data.get('language', 'en')
+    
+    if not search_query:
+        return jsonify({"error": "Search query is required"}), 400
+    
+    try:
+        lang_param = f"lang_{language}"
+        
+        if search_type == 'author':
+            api_url = f"https://www.googleapis.com/books/v1/volumes?q=inauthor:{search_query}&langRestrict={language}&lr={lang_param}&maxResults=10"
+        else:
+            api_url = f"https://www.googleapis.com/books/v1/volumes?q=intitle:{search_query}&langRestrict={language}&lr={lang_param}&maxResults=10"
+        
+        print(f"API URL: {api_url}")
+        
+        response = requests.get(api_url)
+        
+        if response.status_code != 200:
+            return jsonify({"error": "Failed to connect to Google Books API"}), 500
+        
+        api_data = response.json()
+        
+        if 'items' not in api_data or len(api_data['items']) == 0:
+            return jsonify({"error": "No books found with that search term"}), 404
+        
+        results = []
+        for idx, item in enumerate(api_data['items']):
+            if len(results) >= 5:
+                break
+                
+            book_info = item['volumeInfo']
+            
+            book_language = book_info.get('language', 'unknown')
+            if language == 'en' and book_language not in ['en', 'en-US', 'en-GB']:
+                continue
+            if language == 'pt' and book_language not in ['pt', 'pt-BR', 'pt-PT']:
+                continue
+            
+            title = book_info.get('title', 'Unknown Title')
+            authors = book_info.get('authors', ['Unknown Author'])
+            author = ', '.join(authors)
+            
+            isbn = None
+            if 'industryIdentifiers' in book_info:
+                for identifier in book_info['industryIdentifiers']:
+                    if identifier['type'] in ['ISBN_13', 'ISBN_10']:
+                        isbn = identifier['identifier']
+                        break
+            
+            categories = book_info.get('categories', [])
+            genre = categories[0] if categories else None
+            
+            published_date = book_info.get('publishedDate', '')
+            publication_year = None
+            if published_date:
+                try:
+                    publication_year = int(published_date.split('-')[0])
+                except:
+                    publication_year = None
+            
+            results.append({
+                "index": len(results) + 1,
+                "title": title,
+                "author": author,
+                "isbn": isbn,
+                "genre": genre,
+                "publication_year": publication_year,
+                "language": book_language
+            })
+        
+        if not results:
+            return jsonify({"error": f"No books found in {language.upper()}"}), 404
+        
+        return jsonify({"results": results}), 200
+            
+    except Exception as e:
+        return jsonify({"error": f"API error: {str(e)}"}), 500
+
+@book_blueprint.route('/import_selected', methods=['POST'])
+def import_selected_book():
+    if check := admin_check(user_id=request.headers.get('User-ID'), password_hash=request.headers.get('Password_Hash')): 
+        return check
+    
+    data = request.json
+    
+    title = data.get('title')
+    author = data.get('author')
+    isbn = data.get('isbn')
+    genre = data.get('genre')
+    publication_year = data.get('publication_year')
+    
+    if not title or not author:
+        return jsonify({"error": "Title and author are required"}), 400
+    
+    link = get_db_connection()
+    cursor = link.cursor()
+    
+    try:
+        cursor.execute(
+            'INSERT INTO books (title, author, isbn, genre, publication_year) VALUES (%s, %s, %s, %s, %s) RETURNING book_id',
+            (title, author, isbn, genre, publication_year)
+        )
+        new_id = cursor.fetchone()[0]
+        link.commit()
+        
+        return jsonify({
+            "message": "Book imported successfully",
+            "id": new_id,
+            "book": {
+                "title": title,
+                "author": author,
+                "isbn": isbn,
+                "genre": genre,
+                "publication_year": publication_year
+            }
+        }), 201
+    except Exception as e:
+        link.rollback()
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
+    finally:
+        cursor.close()
+        link.close()
 
 @book_blueprint.route('/genres', methods=['GET'])
 def get_genres():

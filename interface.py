@@ -490,7 +490,7 @@ def search_books():
     
     Enter title:                                                                                      
     """)
-            sys.stdout.write("\033[2F\033[19C")
+            sys.stdout.write("\033[2F\033[21C")
             sys.stdout.flush()
             search_term = input()
             search_type = "title"
@@ -501,7 +501,7 @@ def search_books():
     
     Enter author name:                                                                                      
     """)
-            sys.stdout.write("\033[2F\033[21C")
+            sys.stdout.write("\033[2F\033[23C")
             sys.stdout.flush()
             search_term = input()
             search_type = "author"
@@ -1048,40 +1048,155 @@ def import_book_from_google():
     chat_bubble("""
     Import Book from Google Books
     
-    Enter search term (ISBN, title, or author):                                                                                      
+    Select Language:
+        1) English
+        2) Portuguese
+        3) Back
     """)
-    sys.stdout.write("\033[2F\033[49C")
-    sys.stdout.flush()
+    try:
+        lang_option = int(user_input())
+        chat_bubble(f"{lang_option}", "right")
+    except:
+        import_book_from_google()
+        return
+    
+    if lang_option == 3:
+        manage_catalog_menu()
+        return
+    
+    language = ""
+    match lang_option:
+        case 1:
+            language = "en"
+        case 2:
+            language = "pt"
+        case _:
+            import_book_from_google()
+            return
+    
+    chat_bubble("""
+    Search by:
+        1) Title
+        2) Author
+        3) Back
+    """)
+    try:
+        option = int(user_input())
+        chat_bubble(f"{option}", "right")
+    except:
+        import_book_from_google()
+        return
+    
+    if option == 3:
+        import_book_from_google()
+        return
+    
+    search_type = ""
+    match option:
+        case 1:
+            search_type = "title"
+            chat_bubble("""
+    Search by Title
+    
+    Enter title:                                                                                      
+    """)
+            sys.stdout.write("\033[2F\033[20C")
+            sys.stdout.flush()
+        case 2:
+            search_type = "author"
+            chat_bubble("""
+    Search by Author
+    
+    Enter author:                                                                                      
+    """)
+            sys.stdout.write("\033[2F\033[20C")
+            sys.stdout.flush()
+        case _:
+            import_book_from_google()
+            return
+    
     search_query = input()
     print("\n\n")
     
     if not search_query:
         chat_bubble("Search term cannot be empty.")
-        manage_catalog_menu()
+        import_book_from_google()
         return
     
     chat_bubble("Searching Google Books API...")
     
     try:
         response = requests.post(
-            f"{CATALOG_SERVICE}/books/import",
-            json={"query": search_query},
+            f"{CATALOG_SERVICE}/books/search_google",
+            json={"query": search_query, "type": search_type, "language": language},
             headers=current_session.get_session()
         )
         
-        if response.status_code == 201:
+        if response.status_code == 200:
             data = response.json()
-            book = data.get('book', {})
+            results = data.get('results', [])
+            
+            if not results:
+                chat_bubble("No books found.")
+                import_book_from_google()
+                return
+            
+            for book in results:
+                chat_bubble(f"""
+    {book['index']}) {book['title']}
+       Author: {book['author']}
+       ISBN: {book.get('isbn', 'N/A')}
+       Genre: {book.get('genre', 'N/A')}
+       Year: {book.get('publication_year', 'N/A')}
+""")
+            
             chat_bubble(f"""
+    Select a book to import (1-{len(results)}) or 0 to cancel:
+""")
+            
+            try:
+                choice = int(user_input())
+                chat_bubble(f"{choice}", "right")
+                
+                if choice == 0:
+                    import_book_from_google()
+                    return
+                
+                if 1 <= choice <= len(results):
+                    selected_book = results[choice - 1]
+                    
+                    import_response = requests.post(
+                        f"{CATALOG_SERVICE}/books/import_selected",
+                        json=selected_book,
+                        headers=current_session.get_session()
+                    )
+                    
+                    if import_response.status_code == 201:
+                        import_data = import_response.json()
+                        book = import_data.get('book', {})
+                        chat_bubble(f"""
     Book Imported Successfully!
     
-    ID: {data.get('id')}
+    ID: {import_data.get('id')}
     Title: {book.get('title')}
     Author: {book.get('author')}
     ISBN: {book.get('isbn', 'N/A')}
     Genre: {book.get('genre', 'N/A')}
     Year: {book.get('publication_year', 'N/A')}
 """)
+                    else:
+                        try:
+                            error_data = import_response.json()
+                            chat_bubble(f"Error: {error_data.get('error', 'Unknown error')}")
+                        except:
+                            chat_bubble(f"Error: Request failed")
+                else:
+                    chat_bubble("Invalid selection.")
+            except:
+                chat_bubble("Invalid input.")
+                
+        elif response.status_code == 404:
+            chat_bubble("No books found matching your search.")
         else:
             try:
                 error_data = response.json()
