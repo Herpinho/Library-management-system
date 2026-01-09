@@ -421,28 +421,23 @@ def add_book():
     
     Title:                                                                  
     Author:                                                                 
-    ISBN:                                                                   
     Genre:                                                                  
     Publication Year:                                                       
     """)
  
-    sys.stdout.write("\033[6F\033[13C") 
+    sys.stdout.write("\033[5F\033[13C") 
     sys.stdout.flush()
     title = input()
     
-    sys.stdout.write("\033[\033[13C") 
+    sys.stdout.write("\033[13C") 
     sys.stdout.flush()
     author = input()
     
-    sys.stdout.write("\033[\033[12C")
-    sys.stdout.flush()
-    isbn = input()
-    
-    sys.stdout.write("\033[\033[13C")
+    sys.stdout.write("\033[13C")
     sys.stdout.flush()
     genre = input()    
 
-    sys.stdout.write("\033[\033[24C")
+    sys.stdout.write("\033[24C")
     sys.stdout.flush()
     pub_year = input()
     
@@ -451,13 +446,12 @@ def add_book():
     add_book_data = {
         "title": title, 
         "author": author, 
-        "isbn": isbn,
         "genre": genre if genre else None,
         "publication_year": int(pub_year) if pub_year else None
     }
     response = requests.post(f"{CATALOG_SERVICE}/books/", json=add_book_data, headers=current_session.get_session())
     chat_bubble(message_formatter(response))
-    catalog_menu()
+    manage_catalog_menu()
     
 def search_books():
     chat_bubble("""
@@ -1100,7 +1094,7 @@ def import_book_from_google():
     
     Enter title:                                                                                      
     """)
-            sys.stdout.write("\033[2F\033[20C")
+            sys.stdout.write("\033[2F\033[19C")
             sys.stdout.flush()
         case 2:
             search_type = "author"
@@ -1212,20 +1206,114 @@ def add_book_copy():
     chat_bubble("""
     Add Book Copy
     
-    Enter Book ID:                              
-    Enter Rent Price:                              
+    Enter Book ID:                                                                                      
     """)
-    sys.stdout.write("\033[3F\033[20C")
+    sys.stdout.write("\033[2F\033[20C")
     sys.stdout.flush()
     book_id = input()
-    sys.stdout.write("\033[23C")
-    sys.stdout.flush()
-    rent_price = input()
     print("\n\n")
     
-    data = {"rent_price": rent_price}
-    response = requests.post(f"{CATALOG_SERVICE}/books/{book_id}/copy/", json=data, headers=current_session.get_session())
-    chat_bubble(message_formatter(response))
+    chat_bubble("Searching for editions...")
+    
+    try:
+        response = requests.get(
+            f"{CATALOG_SERVICE}/books/{book_id}/search_editions",
+            headers=current_session.get_session()
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            editions = data.get('editions', [])
+            
+            if not editions:
+                chat_bubble("No editions found. Creating copy without ISBN...")
+                
+                chat_bubble("""
+    Enter Rent Price:                                                                                      
+    """)
+                sys.stdout.write("\033[2F\033[23C")
+                sys.stdout.flush()
+                rent_price = input()
+                print("\n\n")
+                
+                copy_data = {"rent_price": float(rent_price)}
+                copy_response = requests.post(
+                    f"{CATALOG_SERVICE}/books/{book_id}/copy/",
+                    json=copy_data,
+                    headers=current_session.get_session()
+                )
+                chat_bubble(message_formatter(copy_response))
+                manage_catalog_menu()
+                return
+            
+            for edition in editions:
+                chat_bubble(f"""
+    {edition['index']}) ISBN: {edition['isbn']} ({edition['isbn_type']})
+       Edition: {edition['edition_info']}
+       Full Title: {edition['full_title']}
+""")
+            
+            chat_bubble(f"""
+    Select an edition (1-{len(editions)}) or 0 to cancel:
+""")
+            
+            try:
+                choice = int(user_input())
+                chat_bubble(f"{choice}", "right")
+                
+                if choice == 0:
+                    manage_catalog_menu()
+                    return
+                
+                if 1 <= choice <= len(editions):
+                    selected_edition = editions[choice - 1]
+                    
+                    chat_bubble("""
+    Enter Rent Price (€/day):                                                                                      
+    """)
+                    sys.stdout.write("\033[2F\033[27C")
+                    sys.stdout.flush()
+                    rent_price = input()
+                    print("\n\n")
+                    
+                    copy_data = {
+                        "rent_price": float(rent_price),
+                        "isbn": selected_edition['isbn'],
+                        "edition_info": selected_edition['edition_info']
+                    }
+                    
+                    copy_response = requests.post(
+                        f"{CATALOG_SERVICE}/books/{book_id}/copy/",
+                        json=copy_data,
+                        headers=current_session.get_session()
+                    )
+                    
+                    if copy_response.status_code == 201:
+                        copy_result = copy_response.json()
+                        chat_bubble(f"""
+    Copy Created Successfully!
+    
+    Copy ID: {copy_result.get('copy_id')}
+    ISBN: {selected_edition['isbn']}
+    Edition: {selected_edition['edition_info']}
+    Rent Price: €{rent_price}/day
+""")
+                    else:
+                        chat_bubble(message_formatter(copy_response))
+                else:
+                    chat_bubble("Invalid selection.")
+            except:
+                chat_bubble("Invalid input.")
+                
+        else:
+            try:
+                error_data = response.json()
+                chat_bubble(f"Error: {error_data.get('error', 'Unknown error')}")
+            except:
+                chat_bubble(f"Error: Request failed")
+    except Exception as e:
+        chat_bubble(f"Error: {str(e)}")
+    
     manage_catalog_menu()
 
 def remove_book():

@@ -97,7 +97,6 @@ def get_book_obj(book_id):
                     b.book_id,
                     b.title,
                     b.author,
-                    b.isbn,
                     b.genre,
                     b.publication_year,
                     COUNT(c.copy_id) as total_copies,
@@ -112,7 +111,7 @@ def get_book_obj(book_id):
         row = cursor.fetchone()
         if not row or row[0] is None:
             return None
-        return Book(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7])
+        return Book(row[0], row[1], row[2], row[3], row[4], row[5], row[6])
     except Exception as e:
         print(f"Database error: {e}")
         raise e 
@@ -130,7 +129,6 @@ def get_all_books():
                 b.book_id,
                 b.title,
                 b.author,
-                b.isbn,
                 b.genre,
                 b.publication_year,
                 COUNT(c.copy_id) as total_copies,
@@ -143,11 +141,12 @@ def get_all_books():
     rows = cursor.fetchall()
     books = []
     for row in rows:
-        book_obj = Book(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7])
+        book_obj = Book(row[0], row[1], row[2], row[3], row[4], row[5], row[6])
         books.append(book_obj.to_json())
     cursor.close()
     link.close()
     return jsonify(books)
+
 
 @book_blueprint.route('/search', methods=['GET'])
 def search_books():
@@ -163,12 +162,7 @@ def search_books():
             cursor.execute(
                 """
                     SELECT
-                        b.book_id,
-                        b.title,
-                        b.author,
-                        b.isbn,
-                        b.genre,
-                        b.publication_year,
+                        b.book_id, b.title, b.author, b.genre, b.publication_year,
                         COUNT(c.copy_id) as total_copies,
                         SUM(CASE WHEN c.status = 'available' THEN 1 ELSE 0 END) as available_copies
                     FROM books b
@@ -182,12 +176,7 @@ def search_books():
             cursor.execute(
                 """
                     SELECT
-                        b.book_id,
-                        b.title,
-                        b.author,
-                        b.isbn,
-                        b.genre,
-                        b.publication_year,
+                        b.book_id, b.title, b.author, b.genre, b.publication_year,
                         COUNT(c.copy_id) as total_copies,
                         SUM(CASE WHEN c.status = 'available' THEN 1 ELSE 0 END) as available_copies
                     FROM books b
@@ -201,12 +190,7 @@ def search_books():
             cursor.execute(
                 """
                     SELECT
-                        b.book_id,
-                        b.title,
-                        b.author,
-                        b.isbn,
-                        b.genre,
-                        b.publication_year,
+                        b.book_id, b.title, b.author, b.genre, b.publication_year,
                         COUNT(c.copy_id) as total_copies,
                         SUM(CASE WHEN c.status = 'available' THEN 1 ELSE 0 END) as available_copies
                     FROM books b
@@ -222,7 +206,7 @@ def search_books():
         rows = cursor.fetchall()
         books = []
         for row in rows:
-            book_obj = Book(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7])
+            book_obj = Book(row[0], row[1], row[2], row[3], row[4], row[5], row[6])
             books.append(book_obj.to_json())
         
         return jsonify(books), 200
@@ -324,10 +308,8 @@ def import_selected_book():
         return check
     
     data = request.json
-    
     title = data.get('title')
     author = data.get('author')
-    isbn = data.get('isbn')
     genre = data.get('genre')
     publication_year = data.get('publication_year')
     
@@ -339,8 +321,8 @@ def import_selected_book():
     
     try:
         cursor.execute(
-            'INSERT INTO books (title, author, isbn, genre, publication_year) VALUES (%s, %s, %s, %s, %s) RETURNING book_id',
-            (title, author, isbn, genre, publication_year)
+            'INSERT INTO books (title, author, genre, publication_year) VALUES (%s, %s, %s, %s) RETURNING book_id',
+            (title, author, genre, publication_year)
         )
         new_id = cursor.fetchone()[0]
         link.commit()
@@ -351,7 +333,6 @@ def import_selected_book():
             "book": {
                 "title": title,
                 "author": author,
-                "isbn": isbn,
                 "genre": genre,
                 "publication_year": publication_year
             }
@@ -362,6 +343,74 @@ def import_selected_book():
     finally:
         cursor.close()
         link.close()
+
+@book_blueprint.route('/<int:book_id>/search_editions', methods=['GET'])
+def search_editions(book_id):
+    if check := admin_check(user_id=request.headers.get('User-ID'), password_hash=request.headers.get('Password_Hash')): 
+        return check
+    
+    book_obj = get_book_obj(book_id)
+    if not book_obj:
+        return jsonify({"error": "Book not found"}), 404
+    
+    try:
+        query = f"{book_obj.title} {book_obj.author}"
+        api_url = f"https://www.googleapis.com/books/v1/volumes?q={query}&maxResults=15"
+        
+        response = requests.get(api_url)
+        
+        if response.status_code != 200:
+            return jsonify({"error": "Failed to connect to Google Books API"}), 500
+        
+        api_data = response.json()
+        
+        if 'items' not in api_data or len(api_data['items']) == 0:
+            return jsonify({"error": "No editions found"}), 404
+        
+        editions = []
+        for idx, item in enumerate(api_data['items']):
+            if len(editions) >= 10:
+                break
+                
+            book_info = item['volumeInfo']
+            
+            isbn = None
+            isbn_type = None
+            if 'industryIdentifiers' in book_info:
+                for identifier in book_info['industryIdentifiers']:
+                    if identifier['type'] in ['ISBN_13', 'ISBN_10']:
+                        isbn = identifier['identifier']
+                        isbn_type = identifier['type']
+                        break
+            
+            if not isbn:
+                continue
+            
+            edition_title = book_info.get('title', '')
+            publisher = book_info.get('publisher', 'Unknown Publisher')
+            published_date = book_info.get('publishedDate', 'Unknown')
+            language = book_info.get('language', 'unknown')
+            
+            edition_info = f"{publisher}, {published_date}, {language.upper()}"
+            
+            editions.append({
+                "index": len(editions) + 1,
+                "isbn": isbn,
+                "isbn_type": isbn_type,
+                "edition_info": edition_info,
+                "full_title": edition_title,
+                "publisher": publisher,
+                "published_date": published_date,
+                "language": language
+            })
+        
+        if not editions:
+            return jsonify({"error": "No editions with ISBN found"}), 404
+        
+        return jsonify({"editions": editions}), 200
+            
+    except Exception as e:
+        return jsonify({"error": f"API error: {str(e)}"}), 500
 
 @book_blueprint.route('/genres', methods=['GET'])
 def get_genres():
@@ -404,8 +453,8 @@ def add_book():
     cursor = link.cursor()
     try:
         cursor.execute(
-            'INSERT INTO books (title, author, isbn, genre, publication_year) VALUES (%s, %s, %s, %s, %s) RETURNING book_id',
-            (data['title'], data['author'], data['isbn'], data.get('genre'), data.get('publication_year'))
+            'INSERT INTO books (title, author, genre, publication_year) VALUES (%s, %s, %s, %s) RETURNING book_id',
+            (data['title'], data['author'], data.get('genre'), data.get('publication_year'))
         )
         new_id = cursor.fetchone()[0]
         link.commit()
@@ -418,27 +467,33 @@ def add_book():
 
 @book_blueprint.route('/<int:book_id>/copy/', methods =['POST'])
 def add_copy(book_id):
-    if check := admin_check(user_id=request.headers.get('User-ID'),password_hash=request.headers.get('Password_Hash')): return check
+    if check := admin_check(user_id=request.headers.get('User-ID'), password_hash=request.headers.get('Password_Hash')): 
+        return check
     link = get_db_connection()
     cursor = link.cursor()
     try:
         cursor.execute('SELECT COUNT(*) FROM book_copies WHERE book_id = %s', (book_id,))
         data = request.json
         rent_price = data['rent_price']
+        isbn = data.get('isbn')
+        edition_info = data.get('edition_info', '')
+        
         count = cursor.fetchone()[0]
         new_copy_id = f"{book_id}.{count+1}"
+        
         cursor.execute(
-            'INSERT INTO book_copies (book_id,copy_id, status,rent_price) VALUES (%s, %s, %s,%s) RETURNING copy_id',
-            (book_id,new_copy_id,'available',rent_price,)
+            'INSERT INTO book_copies (book_id, copy_id, isbn, edition_info, status, rent_price) VALUES (%s, %s, %s, %s, %s, %s) RETURNING copy_id',
+            (book_id, new_copy_id, isbn, edition_info, 'available', rent_price)
         )
         copy_id = cursor.fetchone()[0]
         link.commit()
-        return jsonify ({"message":"Copy successfully created","copy_id": copy_id}),201
+        return jsonify({"message": "Copy successfully created", "copy_id": copy_id}), 201
     except Exception as e:
-        return jsonify({"error":str(e)}),500
+        return jsonify({"error": str(e)}), 500
     finally:
         cursor.close()
         link.close()
+
 
 @book_blueprint.route('/copy/<string:copy_id>',methods = ['DELETE'])
 def remove_copy(copy_id):

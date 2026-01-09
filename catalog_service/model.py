@@ -1,9 +1,8 @@
 class Book:
-    def __init__(self, book_id, title, author, isbn, genre, publication_year, total_count, available_count):
+    def __init__(self, book_id, title, author, genre, publication_year, total_count, available_count):
         self.id = book_id
         self.title = title
         self.author = author
-        self.isbn = isbn
         self.genre = genre
         self.publication_year = publication_year
         self.total_count = total_count
@@ -14,23 +13,26 @@ class Book:
             "id": self.id,
             "title": self.title,
             "author": self.author,
-            "isbn": self.isbn,
             "genre": self.genre,
             "publication_year": self.publication_year,
             "total_copies": self.total_count,
             "available_copies": self.available_count
         }
-    
+
 class BookCopy:
-    def __init__(self, copy_id, book_id, status,rent_price):
+    def __init__(self, copy_id, book_id, isbn, edition_info, status, rent_price):
         self.copy_id = copy_id
         self.book_id = book_id
+        self.isbn = isbn
+        self.edition_info = edition_info
         self.status = status
         self.rent_price = rent_price
 
     def to_json(self):
         return {
             "display_id": f"{self.book_id}.{self.copy_id}", 
+            "isbn": self.isbn,
+            "edition_info": self.edition_info,
             "status": self.status,
-            "rent price" : self.rent_price
+            "rent_price": float(self.rent_price)
         }
