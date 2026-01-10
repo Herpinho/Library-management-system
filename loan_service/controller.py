@@ -8,7 +8,6 @@ from model import Loan
 loan_blueprint = Blueprint('loan_blueprint', __name__)
 CATALOG_SERVICE = "http://catalog_service:5002/books/"
 PAYMENT_SERVICE = "http://payments_service:5004/payments"
-
 def get_loan_object(loan_id):
     link = get_db_connection()
     cursor = link.cursor()
@@ -19,7 +18,6 @@ def get_loan_object(loan_id):
     finally:
         cursor.close()
         link.close()
-
 
 def calculate_due_date(amount, unit):
     multipliers = {
@@ -87,7 +85,7 @@ def new_loan():
 
             if response.status_code ==200:
                 price = float(copy_data[1])*days.days
-                requests.post(f"{PAYMENT_SERVICE}payments",json={
+                requests.post(f"{PAYMENT_SERVICE}/",json={
                     "user_id" : data['user_id'],
                     "loan_id" : new_id,
                     "amount"  : str(price)
@@ -155,6 +153,7 @@ def get_loan(loan_id):
 
 @loan_blueprint.route('/<int:loan_id>', methods = ['PUT'])
 def modify_loan(loan_id):
+    if check := admin_check(user_id=request.headers.get('User-ID'),password_hash=request.headers.get('Password_Hash')): return check
     headers = {'User-ID' : request.headers.get('User-ID'), 'Password-Hash' : request.headers.get('Password-Hash')}
     data = request.json
     link = get_db_connection()
@@ -164,9 +163,11 @@ def modify_loan(loan_id):
         current_loan = cursor.fetchone()
         if not current_loan:
             return jsonify({"error":"loan id not found."}),404
-        
-        if data.get('return_date') == "today" and current_loan[1] == 'returned':
-            return jsonify({"error": "This book has already been returned."}), 400
+            
+        payment = requests.get(f'{PAYMENT_SERVICE}/loan_lookup', json = { "loan_id" : loan_id}, headers=headers )
+        current_payment = payment.json()
+        payment_id = current_payment['payment_id']
+        payment_amount = current_payment['amount']
         
         new_due_date = current_loan[2]
         status = None
@@ -176,113 +177,42 @@ def modify_loan(loan_id):
         if data.get('return_date') == "today":
             return_date = today
             status = 'overdue' if today > current_loan[2] else 'returned'
-            
-            try:
-                payment = requests.get(f'{PAYMENT_SERVICE}/loan_lookup', json={"loan_id": loan_id}, headers=headers)
-                if payment.status_code == 200:
-                    current_payment = payment.json()
-                    payment_id = current_payment.get('payment_id')
-                    if payment_id:
-                        requests.put(f"{PAYMENT_SERVICE}/{payment_id}/complete", json={"transaction_id": "today"}, headers=headers)
-            except:
-                pass
+            requests.put(f"{PAYMENT_SERVICE}/{payment_id}/complete",json = {"transaction_id" : "today"},headers=headers)
         
-        if data.get('due_date') and data.get('due_date') != "":
-            if current_loan[1] == 'returned':
-                return jsonify({"error": "Cannot change due date of a returned book."}), 400
-            
-            try:
-                payment = requests.get(f'{PAYMENT_SERVICE}/loan_lookup', json={"loan_id": loan_id}, headers=headers)
-                if payment.status_code == 200:
-                    current_payment = payment.json()
-                    payment_id = current_payment.get('payment_id')
-                    payment_amount = current_payment.get('amount', 0)
-                else:
-                    payment_id = None
-                    payment_amount = 0
-            except:
-                payment_id = None
-                payment_amount = 0
-                
-            if datetime.now().date() <= current_loan[2]:
+        if data.get('due_date'):
+            if datetime.now().date() < current_loan[2]:
                 parts = data['due_date'].split()
-                if len(parts) == 2:  
+                if len(parts)==2:  
                     amount = int(parts[0])
                     unit = parts[1]
                     time = calculate_due_date(amount, unit)
                     new_due_date = current_loan[2] + time
+                    copy = requests.get(f"{CATALOG_SERVICE}copy/",json = {"copy_id" : current_loan[3]})
+                    copy_data = copy.json()
+                    price = float(copy_data[1])
                     
-                    if payment_id:
-                        try:
-                            copy = requests.get(f"{CATALOG_SERVICE}copy/", json={"copy_id": current_loan[3]})
-                            copy_data = copy.json()
-                            price = float(copy_data[1])
-                            
-                            adjustment = float(-(price*0.5)) if amount < 0 else float(price*1.1)
-                            requests.put(f"{PAYMENT_SERVICE}/{payment_id}", json={
-                                "status": "", "tx_id": "", "amount": float(payment_amount + adjustment * abs(amount))
-                            }, headers=headers)
-                        except:
-                            pass
+                    adjustment = float(-(price*0.5)) if amount < 0 else float(price*1.1)
+                    requests.put(f"{PAYMENT_SERVICE}/{payment_id}", json = {
+                        "status": "", "tx_id": "", "amount": float(payment_amount + adjustment * abs(amount))
+                    },headers=headers)
             else:
-                return jsonify({"error":"loan is already overdue."}), 400
-        
+                return jsonify({"error":"loan is already overdue."})
+                
         cursor.execute('''
-            UPDATE loans 
-            SET due_date = %s, return_date = %s, status = %s
-            WHERE loan_id = %s''',
-            (new_due_date, return_date, status or data.get('status') or current_loan[1], loan_id))
+                    UPDATE loans 
+                    SET due_date = %s, return_date = %s, status = %s
+                    WHERE loan_id = %s''',
+                       (new_due_date, return_date, status or data.get('status') or current_loan[1], loan_id))
         link.commit()
         
-        if status == 'returned' or (data.get('return_date') == 'today'):
+        if status == 'returned' or data.get('return_date') == 'today':
             copy_id = current_loan[3]
-            try:
-                requests.put(
-                    f"{CATALOG_SERVICE}copy/",
-                    json={"copy_id": copy_id, "status": "available"},
-                    headers=headers
-                )
-            except:
-                pass
+            change_availability(book_id=copy_id.split('.')[0], copy_id=copy_id, status='available')
             
         updated_loan_obj = get_loan_object(loan_id)
-        return jsonify({"message": f"loan {loan_id} updated successfully", "loan": updated_loan_obj.to_json()}), 200
+        return jsonify({"message":f"loan {loan_id} updated successfully", "loan": updated_loan_obj.to_json()}),200
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        cursor.close()
-        link.close()
-
-@loan_blueprint.route('/all', methods=['GET'])
-def get_all_loans():
-    if check := admin_check(user_id=request.headers.get('User-ID'), password_hash=request.headers.get('Password_Hash')): 
-        return check
-    
-    link = get_db_connection()
-    cursor = link.cursor()
-    try:
-        cursor.execute(
-            '''
-            SELECT
-                l.loan_id, l.copy_id, l.user_id, l.loan_date, l.due_date, l.return_date, l.status
-            FROM loans l
-            ORDER BY l.loan_id DESC
-            '''
-        )
-        
-        rows = cursor.fetchall()
-        
-        if not rows:
-            return jsonify({"message": "No loans found"}), 200
-        
-        loans = []
-        for row in rows:
-            loan_obj = Loan(row[0], row[1], row[2], row[3], row[4], row[5], row[6])
-            loans.append(loan_obj.to_json())
-        
-        return jsonify(loans), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error":str(e)}),500
     finally:
         cursor.close()
         link.close()

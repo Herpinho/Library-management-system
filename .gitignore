@@ -1,0 +1,13 @@
+.env
+# Ignore node modules
+node_modules/
+# Logs
+logs
+*.log
+# OS files
+.DS_Store
+# Python cache
+__pycache__/
+*.py[cod]
+# Build artifacts
+dist/
