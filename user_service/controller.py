@@ -40,7 +40,7 @@ def login():
     data = request.json
     if not data or not data.get('username') or not data.get('password'):
         return jsonify ({"error": "Fill all fields"}),400
-    link = None
+
     try:
         link = get_db_connection()
         cursor = link.cursor()
@@ -56,9 +56,9 @@ def login():
                     "Role": row[4]  
                 }), 200
             return jsonify({"error":"Wrong name or password"}),250
-        return jsonify({"error":"Wrong name or password"}),250
+        else: return jsonify({"error":"Wrong name or password"}),250
     except Exception as e:
-        return jsonify({"error":str(e)}),500
+        return jsonify(str(e))    
     finally:
         if link:
             link.close()

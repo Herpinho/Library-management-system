@@ -24,10 +24,10 @@ class UserSession:
         return self.role == 'admin'
     
 current_session = UserSession()
-USER_SERVICE = "http://localhost:5001"
-CATALOG_SERVICE = "http://localhost:5002"
-LOAN_SERVICE = "http://localhost:5003"
-PAYMENT_SERVICE = "http://localhost:5004"
+USER_SERVICE = "http://{HOST}:5001"
+CATALOG_SERVICE = "http://{HOST}:5002"
+LOAN_SERVICE = "http://{HOST}:5003"
+PAYMENT_SERVICE = "http://{HOST}:5004"
 def register_user():
     chat_bubble(
     """
@@ -129,6 +129,8 @@ Login
         chat_bubble(message_formatter(response))
         return False
 
+    except Exception as e:
+        chat_bubble(f"Error \n          couldnt connect to the server {str(e)}")
 def log_menu():
     chat_bubble("""
     Welcome to the Library

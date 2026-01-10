@@ -34,17 +34,17 @@ def user_input():
     sys.stdout.flush()
     return user_input
 def message_formatter(response):
-    try:
-        data = response.json()
+    print("a")
+    data = response.json()
+    print("A")
+    for key,value in data.items():
+        if key in ['message','error']:
+            print("A")
+            return str(f"""
+                        {key.capitalize()}
+        {value}                            
+        """)
 
-        for key,value in data.items():
-            if key in ['message','error']:
-                return str(f"""
-                            {key.capitalize()}
-            {value}                            
-            """)
-    except Exception as e:
-        return e
     
 def json_formatter(response):
     data = response.json()
