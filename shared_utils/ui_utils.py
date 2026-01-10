@@ -4,6 +4,7 @@ import json
 def chat_bubble(message, align="left"):
 
     big_line = 0
+    message = str(message)
     lines = message.strip().split('\n')
     for line in lines:
         if len(line) > big_line or big_line == 0:
@@ -36,6 +37,18 @@ def user_input():
 def message_formatter(response):
     try:
         data = response.json()
+<<<<<<< Updated upstream
+=======
+    except Exception:
+        return f"Server Error: {response.text}"
+
+    if isinstance(data, dict):
+        for key in ['message', 'error']:
+            if key in data:
+                return f"\n{key.capitalize()}\n{data[key]}\n"
+    
+    return str(data)
+>>>>>>> Stashed changes
 
         for key,value in data.items():
             if key in ['message','error']:

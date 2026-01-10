@@ -27,7 +27,7 @@ def get_payment(payment_id):
 
 @payment_blueprint.route('/', methods = ['POST'])
 def add_payment():
-    if check := admin_check(user_id=request.headers.get('User-ID'),password_hash=request.headers.get('Password_Hash')):return check
+    if check := admin_check(user_id=request.headers.get('User-ID'),password_hash=request.headers.get('Password-Hash')):return check
     data = request.json
     link = get_db_connection()
     cursor = link.cursor()
@@ -54,7 +54,7 @@ def get_payment_json(payment_id):
             if request.headers.get('User-ID') and int(request.headers.get('User-ID')) == payment_obj.user_id:
                 pass
             else:
-                if check := admin_check(user_id=request.headers.get('User-ID'),password_hash=request.headers.get('Password_Hash')): return check   
+                if check := admin_check(user_id=request.headers.get('User-ID'),password_hash=request.headers.get('Password-Hash')): return check   
             return jsonify(payment_obj.to_json()),200
         return jsonify({"error":f"payment {payment_id} was not found"}),404
     except Exception as e:

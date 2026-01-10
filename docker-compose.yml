@@ -10,13 +10,18 @@ services:
     depends_on:
       - postgres_users
     environment:
-      - DB_NAME=user_db
-      - DB_USER=user
-      - DB_PASSWORD=password
+      - DB_NAME=${USER_DB_NAME}
+      - DB_USER=${USER_DB_USER}
+      - DB_PASSWORD=${USER_DB_PASSWORD}
       - DB_HOST=postgres_users
-      - DB_PORT=5432
+      - DB_PORT=${USER_DB_PORT}
+      - USER_SERVICE=${USER_SERVICE}
+      - CATALOG_SERVICE=${CATALOG_SERVICE}
+      - LOAN_SERVICE=${LOAN_SERVICE}
+      - PAYMENT_SERVICE=${PAYMENT_SERVICE}
     networks:
       - library-net
+
   postgres_users:
     image: postgres:15
     volumes:
@@ -24,14 +29,13 @@ services:
       - user_data:/var/lib/postgresql/data
     restart: always
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: user_db
+      POSTGRES_USER: ${USER_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${USER_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${USER_POSTGRES_DB}
     ports:
       - "5432:5432"
     networks:
-      - "library-net"
-
+      - library-net
 
   catalog_service:
     build:
@@ -39,16 +43,17 @@ services:
       dockerfile: catalog_service/Dockerfile
     ports:
       - "5002:5002"
-    networks:
-      - library-net
-    environment:
-      DB_HOST: postgres_catalog
-      DB_PORT: 5432
-      DB_USER: user
-      DB_PASSWORD: password
-      DB_NAME: catalog_db
     depends_on:
       - postgres_catalog
+    environment:
+      - DB_NAME=${CATALOG_DB_NAME}
+      - DB_USER=${CATALOG_DB_USER}
+      - DB_PASSWORD=${CATALOG_DB_PASSWORD}
+      - DB_HOST=postgres_catalog
+      - DB_PORT=${CATALOG_DB_PORT}
+      - CATALOG_SERVICE=${CATALOG_SERVICE}
+    networks:
+      - library-net
 
   postgres_catalog:
     image: postgres:15
@@ -57,29 +62,31 @@ services:
       - catalog_data:/var/lib/postgresql/data
     restart: always
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: catalog_db
+      POSTGRES_USER: ${CATALOG_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${CATALOG_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${CATALOG_POSTGRES_DB}
     ports:
       - "5434:5432"
     networks:
       - library-net
+
   loan_service:
     build:
       context: .
       dockerfile: loan_service/Dockerfile
     ports:
       - "5003:5003"
-    networks:
-      - library-net
-    environment:
-      DB_HOST: postgres_loan
-      DB_PORT: 5432
-      DB_USER: user
-      DB_PASSWORD: password
-      DB_NAME: loan_db
     depends_on:
       - postgres_loan
+    environment:
+      - DB_NAME=${LOAN_DB_NAME}
+      - DB_USER=${LOAN_DB_USER}
+      - DB_PASSWORD=${LOAN_DB_PASSWORD}
+      - DB_HOST=postgres_loan
+      - DB_PORT=${LOAN_DB_PORT}
+      - LOAN_SERVICE=${LOAN_SERVICE}
+    networks:
+      - library-net
 
   postgres_loan:
     image: postgres:15
@@ -88,29 +95,31 @@ services:
       - loan_data:/var/lib/postgresql/data
     restart: always
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: loan_db
+      POSTGRES_USER: ${LOAN_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${LOAN_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${LOAN_POSTGRES_DB}
     ports:
       - "5436:5432"
     networks:
       - library-net
+
   payments_service:
     build:
       context: .
       dockerfile: payments_service/Dockerfile
     ports:
       - "5004:5004"
-    networks:
-      - library-net
-    environment:
-      DB_HOST: postgres_payments
-      DB_PORT: 5432
-      DB_USER: user
-      DB_PASSWORD: password
-      DB_NAME: payments_db
     depends_on:
       - postgres_payments
+    environment:
+      - DB_NAME=${PAYMENTS_DB_NAME}
+      - DB_USER=${PAYMENTS_DB_USER}
+      - DB_PASSWORD=${PAYMENTS_DB_PASSWORD}
+      - DB_HOST=postgres_payments
+      - DB_PORT=${PAYMENTS_DB_PORT}
+      - PAYMENT_SERVICE=${PAYMENT_SERVICE}
+    networks:
+      - library-net
 
   postgres_payments:
     image: postgres:15
@@ -119,18 +128,20 @@ services:
       - payments_data:/var/lib/postgresql/data
     restart: always
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: payments_db
+      POSTGRES_USER: ${PAYMENTS_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${PAYMENTS_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${PAYMENTS_POSTGRES_DB}
     ports:
       - "5438:5432"
     networks:
       - library-net
+
 networks:
   library-net:
     driver: bridge
+
 volumes:
   user_data:
   catalog_data:
   loan_data:
-  payments_data:    
+  payments_data:

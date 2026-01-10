@@ -85,7 +85,7 @@ def new_loan():
 
             if response.status_code ==200:
                 price = float(copy_data[1])*days.days
-                requests.post(f"{PAYMENT_SERVICE}payments",json={
+                requests.post(f"{PAYMENT_SERVICE}",json={
                     "user_id" : data['user_id'],
                     "loan_id" : new_id,
                     "amount"  : str(price)

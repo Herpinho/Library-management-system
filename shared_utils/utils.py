@@ -30,11 +30,12 @@ def admin_check(user_id,password_hash):
 
 
 def get_db_connection():
-    host = os.environ.get('DB_HOST', 'localhost')
-    port = os.environ.get('DB_PORT','5433')
-    password = os.environ.get('DB_PASSWORD','1234')
-    user = os.environ.get('DB_USER','postgres')
+    host = os.environ.get('DB_HOST') 
+    port = os.environ.get('DB_PORT', '5432')
+    password = os.environ.get('DB_PASSWORD')
+    user = os.environ.get('DB_USER')
     db_name = os.environ.get('DB_NAME')
+    
     return psycopg2.connect(
         host=host,
         database=db_name,

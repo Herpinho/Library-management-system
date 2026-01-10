@@ -52,7 +52,11 @@ def login():
                 return jsonify({"message":"Logged in!", "ID": row[0], "Password": row[3]}),200
             return jsonify({"error":"Wrong name or password"}),250
     except Exception as e:
+<<<<<<< Updated upstream
         return jsonify({"error":str(e)}),500
+=======
+        return jsonify({"error": str(e)}), 500
+>>>>>>> Stashed changes
     finally:
         link.close()
 
