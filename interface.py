@@ -233,19 +233,160 @@ def loan_menu():
 def loan_book_menu():
     chat_bubble("""
     Loan a Book
-            
-    Fill the spaces bellow:
-        Copy ID:                   
-        Loan time:                
+    
+    Enter Book ID:                                                                                      
     """)
-    sys.stdout.write("\033[3F\033[19C")
+    sys.stdout.write("\033[2F\033[20C")
     sys.stdout.flush()
-    copyid = input()
-    sys.stdout.write("\033[21C")
-    sys.stdout.flush()
-    time = input()
-    response = requests.post(f"{LOAN_SERVICE}/loans", json={"copy_id" : copyid, "user_id": current_session.headers.get('User-ID'), "due_date": time, "status" : ""})
-    chat_bubble(message_formatter(response))  
+    book_id = input()
+    print("\n\n")
+    
+    if not book_id:
+        chat_bubble("Book ID cannot be empty.")
+        loan_menu()
+        return
+    
+    try:
+        book_response = requests.get(f"{CATALOG_SERVICE}/books/{book_id}")
+        if book_response.status_code != 200:
+            chat_bubble("Book not found.")
+            loan_menu()
+            return
+        
+        book = book_response.json()
+        
+        chat_bubble(f"""
+    Book: {book.get('title')}
+    Author: {book.get('author')}
+    
+    Searching for available copies...
+""")
+        
+        copies_response = requests.get(f"{CATALOG_SERVICE}/books/{book_id}/available_copies")
+        
+        if copies_response.status_code == 404:
+            chat_bubble("No available copies for this book.")
+            loan_menu()
+            return
+        
+        if copies_response.status_code != 200:
+            chat_bubble("Error fetching available copies.")
+            loan_menu()
+            return
+        
+        copies_data = copies_response.json()
+        copies = copies_data.get('copies', [])
+        
+        if not copies:
+            chat_bubble("No available copies for this book.")
+            loan_menu()
+            return
+        
+        for idx, copy in enumerate(copies, 1):
+            chat_bubble(f"""
+    {idx}) Copy ID: {copy['copy_id']}
+       ISBN: {copy['isbn']}
+       Edition: {copy['edition_info']}
+       Price: €{copy['rent_price']}/day
+""")
+        
+        chat_bubble(f"""
+    Select a copy (1-{len(copies)}) or 0 to cancel:
+""")
+        
+        try:
+            choice = int(user_input())
+            chat_bubble(f"{choice}", "right")
+            
+            if choice == 0:
+                loan_menu()
+                return
+            
+            if not (1 <= choice <= len(copies)):
+                chat_bubble("Invalid selection.")
+                loan_menu()
+                return
+            
+            selected_copy = copies[choice - 1]
+            
+            chat_bubble("""
+    Loan Duration
+    
+    Enter duration :                                                                                      
+    """)
+            sys.stdout.write("\033[2F\033[22C")
+            sys.stdout.flush()
+            loan_time = input()
+            print("\n\n")
+            
+            if not loan_time:
+                chat_bubble("Duration cannot be empty.")
+                loan_menu()
+                return
+            
+            parts = loan_time.strip().split()
+            if len(parts) != 2:
+                chat_bubble("Invalid format. Use: '1 week', '2 weeks', '5 days'")
+                loan_menu()
+                return
+            
+            try:
+                amount = int(parts[0])
+                unit = parts[1]
+            except:
+                chat_bubble("Invalid duration format.")
+                loan_menu()
+                return
+            
+            multipliers = {'month': 30, 'months': 30, 'week': 7, 'weeks': 7, 'day': 1, 'days': 1}
+            if unit.lower() not in multipliers:
+                chat_bubble("Invalid unit. Use: days, weeks, or months")
+                loan_menu()
+                return
+            
+            total_days = amount * multipliers[unit.lower()]
+            total_cost = total_days * selected_copy['rent_price']
+            
+            chat_bubble(f"""
+    Loan Summary
+    
+    Book: {book.get('title')}
+    Copy: {selected_copy['copy_id']}
+    Edition: {selected_copy['edition_info']}
+    Duration: {loan_time}
+    Total Cost: €{total_cost:.2f}
+    
+    Confirm? (yes/no):
+""")
+            
+            confirmation = user_input().strip().lower()
+            chat_bubble(f"{confirmation}", "right")
+            
+            if confirmation != 'yes':
+                chat_bubble("Loan cancelled.")
+                loan_menu()
+                return
+            
+            response = requests.post(
+                f"{LOAN_SERVICE}/loans",
+                json={
+                    "copy_id": selected_copy['copy_id'],
+                    "user_id": current_session.headers.get('User-ID'),
+                    "due_date": loan_time,
+                    "status": ""
+                }
+            )
+            
+            chat_bubble(message_formatter(response))
+            
+        except ValueError:
+            chat_bubble("Invalid input.")
+        except Exception as e:
+            chat_bubble(f"Error: {str(e)}")
+    
+    except Exception as e:
+        chat_bubble(f"Error: {str(e)}")
+    
     main_menu_user()
 
 def check_loan_menu():
@@ -557,7 +698,6 @@ def search_books():
     Book ID: {book.get('id')}
     Title: {book.get('title')}
     Author: {book.get('author')}
-    ISBN: {book.get('isbn', 'N/A')}
     Genre: {book.get('genre', 'N/A')}
     Publication Year: {book.get('publication_year', 'N/A')}
     Total Copies: {book.get('total_copies', 0)}
@@ -593,23 +733,16 @@ def view_book_details():
     if response.status_code == 200:
         book = response.json()
         
-        copies_response = requests.get(f"{CATALOG_SERVICE}/books/{book_id}/copies")
-        copies_info = ""
-        
-        if copies_response.status_code == 200:
-            copies = copies_response.json()
-            copies_info = f"\n    Total Copies: {len(copies)}"
-            available = sum(1 for copy in copies if copy.get('status') == 'available')
-            copies_info += f"\n    Available: {available}"
-        
         chat_bubble(f"""
     Book Details
     
-    ID: {book.get('book_id')}
+    ID: {book.get('id')}
     Title: {book.get('title')}
     Author: {book.get('author')}
     Genre: {book.get('genre', 'N/A')}
     Publication Year: {book.get('publication_year', 'N/A')}
+    Total Copies: {book.get('total_copies', 0)}
+    Available Copies: {book.get('available_copies', 0)}
     
 """)
     else:
@@ -949,7 +1082,7 @@ def delete_user():
     
     Enter User ID:                              
     """)
-    sys.stdout.write("\033[2F\033[17C")
+    sys.stdout.write("\033[2F\033[20C")
     sys.stdout.flush()
     user_id = input()
     print("\n\n")
@@ -1231,7 +1364,7 @@ def add_book_copy():
                 chat_bubble("""
     Enter Rent Price:                                                                                      
     """)
-                sys.stdout.write("\033[2F\033[23C")
+                sys.stdout.write("\033[2F\033[25C")
                 sys.stdout.flush()
                 rent_price = input()
                 print("\n\n")
@@ -1350,15 +1483,100 @@ def remove_book_copy():
     chat_bubble("""
     Remove Book Copy
     
-    Enter Copy ID (book_id.copy_num):                       
+    Enter Book ID:                                                                                      
     """)
-    sys.stdout.write("\033[2F\033[40C")
+    sys.stdout.write("\033[2F\033[20C")
     sys.stdout.flush()
-    copy_id = input()
+    book_id = input()
     print("\n\n")
     
-    response = requests.delete(f"{CATALOG_SERVICE}/books/copy/{copy_id}", headers=current_session.get_session())
-    chat_bubble(message_formatter(response))
+    if not book_id:
+        chat_bubble("Book ID cannot be empty.")
+        manage_catalog_menu()
+        return
+    
+    try:
+        book_response = requests.get(f"{CATALOG_SERVICE}/books/{book_id}")
+        if book_response.status_code != 200:
+            chat_bubble("Book not found.")
+            manage_catalog_menu()
+            return
+        
+        book = book_response.json()
+        
+        chat_bubble(f"""
+    Book: {book.get('title')}
+    Author: {book.get('author')}
+    
+    Fetching copies...
+""")
+        
+        copies_response = requests.get(f"{CATALOG_SERVICE}/books/{book_id}/copies")
+        
+        if copies_response.status_code != 200:
+            chat_bubble("No copies found for this book.")
+            manage_catalog_menu()
+            return
+        
+        copies_data = copies_response.json()
+        copies = copies_data.get('copies', [])
+        
+        if not copies:
+            chat_bubble("No copies found for this book.")
+            manage_catalog_menu()
+            return
+        
+        for idx, copy in enumerate(copies, 1):
+            status_display = "AVAILABLE" if copy['status'] == 'available' else "LOANED"
+            chat_bubble(f"""
+    {idx}) Copy ID: {copy['copy_id']}
+       ISBN: {copy.get('isbn', 'N/A')}
+       Edition: {copy.get('edition_info', 'Standard Edition')}
+       Price: €{copy['rent_price']}/day
+       Status: {status_display}
+""")
+        
+        chat_bubble(f"""
+    Select a copy to remove (1-{len(copies)}) or 0 to cancel:
+""")
+        
+        try:
+            choice = int(user_input())
+            chat_bubble(f"{choice}", "right")
+            
+            if choice == 0:
+                manage_catalog_menu()
+                return
+            
+            if 1 <= choice <= len(copies):
+                selected_copy = copies[choice - 1]
+                
+                chat_bubble(f"""
+    Are you sure you want to delete Copy {selected_copy['copy_id']}?
+    
+    Type 'yes' to confirm:                                                                                      
+    """)
+                sys.stdout.write("\033[2F\033[28C")
+                sys.stdout.flush()
+                confirmation = input()
+                print("\n\n")
+                
+                if confirmation.lower() == 'yes':
+                    delete_response = requests.delete(
+                        f"{CATALOG_SERVICE}/books/copy/{selected_copy['copy_id']}",
+                        headers=current_session.get_session()
+                    )
+                    chat_bubble(message_formatter(delete_response))
+                else:
+                    chat_bubble("Operation cancelled.")
+            else:
+                chat_bubble("Invalid selection.")
+        except:
+            chat_bubble("Invalid input.")
+    
+    except Exception as e:
+        chat_bubble(f"Error: {str(e)}")
+    
     manage_catalog_menu()
 
 def view_all_books():
@@ -1370,7 +1588,6 @@ def view_all_books():
     Book ID: {book.get('id')}
     Title: {book.get('title')}
     Author: {book.get('author')}
-    ISBN: {book.get('isbn', 'N/A')}
     Genre: {book.get('genre', 'N/A')}
     Publication Year: {book.get('publication_year', 'N/A')}
     Total Copies: {book.get('total_copies')}

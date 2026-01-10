@@ -369,7 +369,7 @@ def search_editions(book_id):
         
         editions = []
         for idx, item in enumerate(api_data['items']):
-            if len(editions) >= 10:
+            if len(editions) >= 5:
                 break
                 
             book_info = item['volumeInfo']
@@ -389,9 +389,8 @@ def search_editions(book_id):
             edition_title = book_info.get('title', '')
             publisher = book_info.get('publisher', 'Unknown Publisher')
             published_date = book_info.get('publishedDate', 'Unknown')
-            language = book_info.get('language', 'unknown')
             
-            edition_info = f"{publisher}, {published_date}, {language.upper()}"
+            edition_info = f"{publisher}, {published_date}"
             
             editions.append({
                 "index": len(editions) + 1,
@@ -400,8 +399,7 @@ def search_editions(book_id):
                 "edition_info": edition_info,
                 "full_title": edition_title,
                 "publisher": publisher,
-                "published_date": published_date,
-                "language": language
+                "published_date": published_date
             })
         
         if not editions:
@@ -572,6 +570,78 @@ def get_copy():
         return jsonify(copy)
     except Exception as e:
         return jsonify({"error":str(e)}),500
+    finally:
+        cursor.close()
+        link.close()
+
+@book_blueprint.route('/<int:book_id>/available_copies', methods=['GET'])
+def get_available_copies(book_id):
+    link = get_db_connection()
+    cursor = link.cursor()
+    try:
+        cursor.execute(
+            """
+                SELECT copy_id, isbn, edition_info, rent_price
+                FROM book_copies
+                WHERE book_id = %s AND status = 'available'
+                ORDER BY copy_id
+            """, (book_id,)
+        )
+        rows = cursor.fetchall()
+        
+        if not rows:
+            return jsonify({"message": "No available copies"}), 404
+        
+        copies = []
+        for row in rows:
+            copies.append({
+                "copy_id": row[0],
+                "isbn": row[1] if row[1] else "N/A",
+                "edition_info": row[2] if row[2] else "Standard Edition",
+                "rent_price": float(row[3])
+            })
+        
+        return jsonify({"copies": copies}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        link.close()
+
+@book_blueprint.route('/<int:book_id>/copies', methods=['GET'])
+def get_book_copies(book_id):
+    if check := admin_check(user_id=request.headers.get('User-ID'), password_hash=request.headers.get('Password_Hash')): 
+        return check
+    
+    link = get_db_connection()
+    cursor = link.cursor()
+    try:
+        cursor.execute(
+            """
+                SELECT copy_id, isbn, edition_info, status, rent_price
+                FROM book_copies
+                WHERE book_id = %s
+                ORDER BY copy_id
+            """, (book_id,)
+        )
+        rows = cursor.fetchall()
+        
+        if not rows:
+            return jsonify({"message": "No copies found"}), 404
+        
+        copies = []
+        for row in rows:
+            copies.append({
+                "copy_id": row[0],
+                "isbn": row[1] if row[1] else "N/A",
+                "edition_info": row[2] if row[2] else "Standard Edition",
+                "status": row[3],
+                "rent_price": float(row[4])
+            })
+        
+        return jsonify({"copies": copies}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
     finally:
         cursor.close()
         link.close()
