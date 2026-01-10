@@ -34,12 +34,10 @@ def user_input():
     sys.stdout.flush()
     return user_input
 def message_formatter(response):
-    print("a")
     data = response.json()
-    print("A")
+
     for key,value in data.items():
         if key in ['message','error']:
-            print("A")
             return str(f"""
                         {key.capitalize()}
         {value}                            

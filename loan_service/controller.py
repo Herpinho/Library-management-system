@@ -85,7 +85,7 @@ def new_loan():
 
             if response.status_code ==200:
                 price = float(copy_data[1])*days.days
-                requests.post(f"{PAYMENT_SERVICE}payments",json={
+                requests.post(f"{PAYMENT_SERVICE}/",json={
                     "user_id" : data['user_id'],
                     "loan_id" : new_id,
                     "amount"  : str(price)
@@ -164,7 +164,7 @@ def modify_loan(loan_id):
         if not current_loan:
             return jsonify({"error":"loan id not found."}),404
             
-        payment = requests.get(f'{PAYMENT_SERVICE}/payments', json = { "loan_id" : loan_id}, headers=headers )
+        payment = requests.get(f'{PAYMENT_SERVICE}/loan_lookup', json = { "loan_id" : loan_id}, headers=headers )
         current_payment = payment.json()
         payment_id = current_payment['payment_id']
         payment_amount = current_payment['amount']
@@ -177,7 +177,7 @@ def modify_loan(loan_id):
         if data.get('return_date') == "today":
             return_date = today
             status = 'overdue' if today > current_loan[2] else 'returned'
-            requests.put(f"{PAYMENT_SERVICE}payments/{payment_id}/complete",json = {"transaction_id" : "today"},headers=headers)
+            requests.put(f"{PAYMENT_SERVICE}/{payment_id}/complete",json = {"transaction_id" : "today"},headers=headers)
         
         if data.get('due_date'):
             if datetime.now().date() < current_loan[2]:
@@ -192,7 +192,7 @@ def modify_loan(loan_id):
                     price = float(copy_data[1])
                     
                     adjustment = float(-(price*0.5)) if amount < 0 else float(price*1.1)
-                    requests.put(f"{PAYMENT_SERVICE}payments/{payment_id}", json = {
+                    requests.put(f"{PAYMENT_SERVICE}/{payment_id}", json = {
                         "status": "", "tx_id": "", "amount": float(payment_amount + adjustment * abs(amount))
                     },headers=headers)
             else:
