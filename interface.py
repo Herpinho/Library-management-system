@@ -213,7 +213,7 @@ def main_menu_user():
             catalog_menu()
         case 3:
             title("Library System - Payments")
-            payments_menu()
+            payments_menu_user()
         case 4:
             title("Library System - Account Settings")
             account_settings()
@@ -254,160 +254,23 @@ def loan_menu():
 def loan_book_menu():
     chat_bubble("""
     Loan a Book
-    
-    Enter Book ID:                                                                                      
+            
+    Fill the spaces bellow:
+        Copy ID:                   
+        Loan time:                
     """)
-    sys.stdout.write("\033[2F\033[20C")
+    sys.stdout.write("\033[3F\033[19C")
     sys.stdout.flush()
-    book_id = input()
-    print("\n\n")
-    
-    if not book_id:
-        chat_bubble("Book ID cannot be empty.")
-        loan_menu()
-        return
-    
-    try:
-        book_response = requests.get(f"{CATALOG_SERVICE}/books/{book_id}")
-        if book_response.status_code != 200:
-            chat_bubble("Book not found.")
-            loan_menu()
-            return
-        
-        book = book_response.json()
-        
-        chat_bubble(f"""
-    Book: {book.get('title')}
-    Author: {book.get('author')}
-    
-    Searching for available copies...
-""")
-        
-        copies_response = requests.get(f"{CATALOG_SERVICE}/books/{book_id}/available_copies")
-        
-        if copies_response.status_code == 404:
-            chat_bubble("No available copies for this book.")
-            loan_menu()
-            return
-        
-        if copies_response.status_code != 200:
-            chat_bubble("Error fetching available copies.")
-            loan_menu()
-            return
-        
-        copies_data = copies_response.json()
-        copies = copies_data.get('copies', [])
-        
-        if not copies:
-            chat_bubble("No available copies for this book.")
-            loan_menu()
-            return
-        
-        for idx, copy in enumerate(copies, 1):
-            chat_bubble(f"""
-    {idx}) Copy ID: {copy['copy_id']}
-       ISBN: {copy['isbn']}
-       Edition: {copy['edition_info']}
-       Price: €{copy['rent_price']}/day
-""")
-        
-        chat_bubble(f"""
-    Select a copy (1-{len(copies)}) or 0 to cancel:
-""")
-        
-        try:
-            choice = int(user_input())
-            chat_bubble(f"{choice}", "right")
-            
-            if choice == 0:
-                loan_menu()
-                return
-            
-            if not (1 <= choice <= len(copies)):
-                chat_bubble("Invalid selection.")
-                loan_menu()
-                return
-            
-            selected_copy = copies[choice - 1]
-            
-            chat_bubble("""
-    Loan Duration
-    
-    Enter duration :                                                                                      
-    """)
-            sys.stdout.write("\033[2F\033[22C")
-            sys.stdout.flush()
-            loan_time = input()
-            print("\n\n")
-            
-            if not loan_time:
-                chat_bubble("Duration cannot be empty.")
-                loan_menu()
-                return
-            
-            parts = loan_time.strip().split()
-            if len(parts) != 2:
-                chat_bubble("Invalid format. Use: '1 week', '2 weeks', '5 days'")
-                loan_menu()
-                return
-            
-            try:
-                amount = int(parts[0])
-                unit = parts[1]
-            except:
-                chat_bubble("Invalid duration format.")
-                loan_menu()
-                return
-            
-            multipliers = {'month': 30, 'months': 30, 'week': 7, 'weeks': 7, 'day': 1, 'days': 1}
-            if unit.lower() not in multipliers:
-                chat_bubble("Invalid unit. Use: days, weeks, or months")
-                loan_menu()
-                return
-            
-            total_days = amount * multipliers[unit.lower()]
-            total_cost = total_days * selected_copy['rent_price']
-            
-            chat_bubble(f"""
-    Loan Summary
-    
-    Book: {book.get('title')}
-    Copy: {selected_copy['copy_id']}
-    Edition: {selected_copy['edition_info']}
-    Duration: {loan_time}
-    Total Cost: €{total_cost:.2f}
-    
-    Confirm? (yes/no):
-""")
-            
-            confirmation = user_input().strip().lower()
-            chat_bubble(f"{confirmation}", "right")
-            
-            if confirmation != 'yes':
-                chat_bubble("Loan cancelled.")
-                loan_menu()
-                return
-            
-            response = requests.post(
-                f"{LOAN_SERVICE}/loans",
-                json={
-                    "copy_id": selected_copy['copy_id'],
-                    "user_id": current_session.headers.get('User-ID'),
-                    "due_date": loan_time,
-                    "status": ""
-                }
-            )
-            
-            chat_bubble(message_formatter(response))
-            
-        except ValueError:
-            chat_bubble("Invalid input.")
-        except Exception as e:
-            chat_bubble(f"Error: {str(e)}")
-    
-    except Exception as e:
-        chat_bubble(f"Error: {str(e)}")
-    
+    copyid = input()
+    sys.stdout.write("\033[21C")
+    sys.stdout.flush()
+    time = input()
+    if not time or not copyid:
+        chat_bubble("""Error:
+Insert valid numbers""")
+        loan_book_menu() 
+    response = requests.post(f"{LOAN_SERVICE}/loans", json={"copy_id" : copyid, "user_id": current_session.headers.get('User-ID'), "due_date": time, "status" : ""})
+    chat_bubble(message_formatter(response))  
     main_menu_user()
 def check_loan_menu():
     response = requests.get(f"{LOAN_SERVICE}/loans/{current_session.headers.get('User-ID')}", headers = current_session.get_session())
@@ -496,24 +359,24 @@ def add_book():
     Add New Book
     
     Title:                                                                  
-    Author:                                                                 
+    Author:                                                                                                                                 
     Genre:                                                                  
     Publication Year:                                                       
     """)
  
-    sys.stdout.write("\033[5F\033[13C") 
+    sys.stdout.write("\033[6F\033[13C") 
     sys.stdout.flush()
     title = input()
     
-    sys.stdout.write("\033[13C") 
+    sys.stdout.write("\033[\033[13C") 
     sys.stdout.flush()
     author = input()
-    
-    sys.stdout.write("\033[13C")
+       
+    sys.stdout.write("\033[\033[13C")
     sys.stdout.flush()
     genre = input()    
 
-    sys.stdout.write("\033[24C")
+    sys.stdout.write("\033[\033[24C")
     sys.stdout.flush()
     pub_year = input()
     
@@ -522,12 +385,13 @@ def add_book():
     add_book_data = {
         "title": title, 
         "author": author, 
+
         "genre": genre if genre else None,
         "publication_year": int(pub_year) if pub_year else None
     }
     response = requests.post(f"{CATALOG_SERVICE}/books/", json=add_book_data, headers=current_session.get_session())
     chat_bubble(message_formatter(response))
-    manage_catalog_menu()
+    catalog_menu()
     
 def search_books():
     chat_bubble("""
@@ -560,7 +424,7 @@ def search_books():
     
     Enter title:                                                                                      
     """)
-            sys.stdout.write("\033[2F\033[21C")
+            sys.stdout.write("\033[2F\033[19C")
             sys.stdout.flush()
             search_term = input()
             search_type = "title"
@@ -571,7 +435,7 @@ def search_books():
     
     Enter author name:                                                                                      
     """)
-            sys.stdout.write("\033[2F\033[23C")
+            sys.stdout.write("\033[2F\033[21C")
             sys.stdout.flush()
             search_term = input()
             search_type = "author"
@@ -633,6 +497,7 @@ def search_books():
     Book ID: {book.get('id')}
     Title: {book.get('title')}
     Author: {book.get('author')}
+    ISBN: {book.get('isbn', 'N/A')}
     Genre: {book.get('genre', 'N/A')}
     Publication Year: {book.get('publication_year', 'N/A')}
     Total Copies: {book.get('total_copies', 0)}
@@ -668,16 +533,24 @@ def view_book_details():
     if response.status_code == 200:
         book = response.json()
         
+        # Get copies information if available
+        copies_response = requests.get(f"{CATALOG_SERVICE}/books/{book_id}/copies")
+        copies_info = ""
+        
+        if copies_response.status_code == 200:
+            copies = copies_response.json()
+            copies_info = f"\n    Total Copies: {len(copies)}"
+            available = sum(1 for copy in copies if copy.get('status') == 'available')
+            copies_info += f"\n    Available: {available}"
+        
         chat_bubble(f"""
     Book Details
     
-    ID: {book.get('id')}
+    ID: {book.get('book_id')}
     Title: {book.get('title')}
     Author: {book.get('author')}
     Genre: {book.get('genre', 'N/A')}
     Publication Year: {book.get('publication_year', 'N/A')}
-    Total Copies: {book.get('total_copies', 0)}
-    Available Copies: {book.get('available_copies', 0)}
     
 """)
     else:
@@ -720,7 +593,7 @@ def view_profile():
         user = response.json()
         chat_bubble(f"""
     Your Profile
-    
+
     User ID: {user.get('id')}
     Username: {user.get('name')}
     Email: {user.get('email')}
@@ -732,48 +605,92 @@ def view_profile():
     account_settings()
 
 def change_username():
-    chat_bubble("""
+    user_id = current_session.get_session().get('User-ID')
+    response = requests.get(f"{USER_SERVICE}/users/{user_id}", headers=current_session.get_session())
+
+    if response.status_code != 200:
+        chat_bubble("Error fetching user data.")
+        account_settings()
+        return
+
+    current_user = response.json()
+    current_username = current_user.get('name')
+
+    chat_bubble(f"""
     Change Username
-    
-    New Username:                              
+
+    Current Username: {current_username}
+    New Username:
     """)
     sys.stdout.write("\033[2F\033[19C")
     sys.stdout.flush()
     new_username = input()
+
+    if not new_username:
+        chat_bubble("Username cannot be empty.")
+        account_settings()
+        return
+
+    if new_username == current_username:
+        chat_bubble("New username is the same as current username.")
+        account_settings()
+        return
+
     while not re.match(r'^[a-zA-Z0-9]{6,}', new_username):
-        sys.stdout.write("\033[3F\033[2C")
+        sys.stdout.write("\033[4F\033[2C")
         sys.stdout.flush()
         print("Invalid Username. (min. 6 characters)")
-        sys.stdout.write(f"\033[1E\033[16C" + (" " * len(new_username)) + f"\033[{len(new_username)}D")
+        sys.stdout.write(f"\033[2E\033[16C" + (" " * len(new_username)) + f"\033[{len(new_username)}D")
         sys.stdout.flush()
         new_username = input()
     print("\n\n")
-    
-    user_id = current_session.get_session().get('User-ID')
+
     data = {"user_id": user_id, "new_username": new_username}
     response = requests.put(f"{USER_SERVICE}/users/", json=data, headers=current_session.get_session())
     chat_bubble(message_formatter(response))
     account_settings()
 
 def change_email():
-    chat_bubble("""
+    user_id = current_session.get_session().get('User-ID')
+    response = requests.get(f"{USER_SERVICE}/users/{user_id}", headers=current_session.get_session())
+
+    if response.status_code != 200:
+        chat_bubble("Error fetching user data.")
+        account_settings()
+        return
+
+    current_user = response.json()
+    current_email = current_user.get('email')
+
+    chat_bubble(f"""
     Change Email
-    
-    New Email:                              
+
+    Current Email: {current_email}
+    New Email:
     """)
     sys.stdout.write("\033[2F\033[16C")
     sys.stdout.flush()
     new_email = input()
-    while not re.match(r'^[a-zA-Z0-9._]+@[a-zA-Z]+\.[a-zA-Z]{2,}$', new_email):
-        sys.stdout.write("\033[3F\033[2C")
+
+    if not new_email:
+        chat_bubble("Email cannot be empty.")
+        account_settings()
+        return
+
+    if new_email == current_email:
+        chat_bubble("New email is the same as current email.")
+        account_settings()
+        return
+
+    while not re.match(r'^[a-zA-Z0-9.]+@[a-zA-Z]+.[a-zA-Z]{2,}$', new_email):
+        sys.stdout.write("\033[4F\033[2C")
         sys.stdout.flush()
         print("Invalid Email.")
-        sys.stdout.write(f"\033[1E\033[13C" + (" " * len(new_email)) + f"\033[{len(new_email)}D")
+        sys.stdout.write(f"\033[2E\033[13C" + (" " * len(new_email)) + f"\033[{len(new_email)}D")
         sys.stdout.flush()
         new_email = input()
     print("\n\n")
-    
-    user_id = current_session.get_session().get('User-ID')
+
     data = {"user_id": user_id, "new_email": new_email}
     response = requests.put(f"{USER_SERVICE}/users/", json=data, headers=current_session.get_session())
     chat_bubble(message_formatter(response))
@@ -782,13 +699,19 @@ def change_email():
 def change_password():
     chat_bubble("""
     Change Password
-    
-    New Password:                              
+
+    New Password:
     """)
     sys.stdout.write("\033[2F\033[19C")
     sys.stdout.flush()
     new_password = getpass.getpass("")
-    while not re.match(r'^[a-zA-Z0-9._%+\-!?"#$%&/()]{8,}$', new_password):
+
+    if not new_password:
+        chat_bubble("Password cannot be empty.")
+        account_settings()
+        return
+
+    while not re.match(r'^[a-zA-Z0-9.%+-!?"#$%&/()]{8,}$', new_password):
         sys.stdout.write("\033[4F\033[2C")
         sys.stdout.flush()
         print("Invalid Password. (min. 8 characters)")
@@ -796,12 +719,21 @@ def change_password():
         sys.stdout.flush()
         new_password = getpass.getpass("")
     print("\n\n")
-    
+
     user_id = current_session.get_session().get('User-ID')
     data = {"user_id": user_id, "new_password": new_password}
     response = requests.put(f"{USER_SERVICE}/users/", json=data, headers=current_session.get_session())
-    chat_bubble(message_formatter(response))
-    account_settings() 
+
+    if response.status_code == 200:
+        chat_bubble(message_formatter(response))
+    else:
+        try:
+            error_data = response.json()
+            chat_bubble(f"Error: {error_data.get('error', 'Unknown error')}")
+        except:
+            chat_bubble(f"Error: Request failed")
+
+    account_settings()
 
 def main_menu_admin():
     chat_bubble("""
@@ -881,7 +813,7 @@ def delete_user():
     
     Enter User ID:                              
     """)
-    sys.stdout.write("\033[2F\033[20C")
+    sys.stdout.write("\033[2F\033[17C")
     sys.stdout.flush()
     user_id = input()
     print("\n\n")
@@ -941,12 +873,13 @@ def manage_catalog_menu():
     Manage Catalog
             
     Choose an option:
-        1) Add Book
-        2) Add Book Copy
-        3) Remove Book
-        4) Remove Book Copy
-        5) View All Books
-        6) Back
+        1) Add Book Manually
+        2) Import Book from Google Books       
+        3) Add Book Copy
+        4) Remove Book
+        5) Remove Book Copy
+        6) View All Books
+        7) Back
     """)
     try:
         option = int(user_input())
@@ -957,16 +890,20 @@ def manage_catalog_menu():
         case 1:
             add_book()
         case 2:
-            add_book_copy()
+            import_book_from_google()
         case 3:
-            remove_book()
+            add_book_copy()
         case 4:
-            remove_book_copy()
+            remove_book()
         case 5:
-            view_all_books()
+            remove_book_copy()
         case 6:
+            view_all_books()
+        case 7:
             main_menu_admin()
 
+<<<<<<< Updated upstream
+=======
 def import_book_from_google():
     chat_bubble("""
     Import Book from Google Books
@@ -1068,7 +1005,6 @@ def import_book_from_google():
                 chat_bubble(f"""
     {book['index']}) {book['title']}
        Author: {book['author']}
-       ISBN: {book.get('isbn', 'N/A')}
        Genre: {book.get('genre', 'N/A')}
        Year: {book.get('publication_year', 'N/A')}
 """)
@@ -1103,7 +1039,6 @@ def import_book_from_google():
     ID: {import_data.get('id')}
     Title: {book.get('title')}
     Author: {book.get('author')}
-    ISBN: {book.get('isbn', 'N/A')}
     Genre: {book.get('genre', 'N/A')}
     Year: {book.get('publication_year', 'N/A')}
 """)
@@ -1131,118 +1066,25 @@ def import_book_from_google():
     
     manage_catalog_menu()
 
+>>>>>>> Stashed changes
 def add_book_copy():
     chat_bubble("""
     Add Book Copy
     
-    Enter Book ID:                                                                                      
+    Enter Book ID:                              
+    Enter Rent Price:                              
     """)
-    sys.stdout.write("\033[2F\033[20C")
+    sys.stdout.write("\033[3F\033[20C")
     sys.stdout.flush()
     book_id = input()
+    sys.stdout.write("\033[23C")
+    sys.stdout.flush()
+    rent_price = input()
     print("\n\n")
     
-    chat_bubble("Searching for editions...")
-    
-    try:
-        response = requests.get(
-            f"{CATALOG_SERVICE}/books/{book_id}/search_editions",
-            headers=current_session.get_session()
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            editions = data.get('editions', [])
-            
-            if not editions:
-                chat_bubble("No editions found. Creating copy without ISBN...")
-                
-                chat_bubble("""
-    Enter Rent Price:                                                                                      
-    """)
-                sys.stdout.write("\033[2F\033[25C")
-                sys.stdout.flush()
-                rent_price = input()
-                print("\n\n")
-                
-                copy_data = {"rent_price": float(rent_price)}
-                copy_response = requests.post(
-                    f"{CATALOG_SERVICE}/books/{book_id}/copy/",
-                    json=copy_data,
-                    headers=current_session.get_session()
-                )
-                chat_bubble(message_formatter(copy_response))
-                manage_catalog_menu()
-                return
-            
-            for edition in editions:
-                chat_bubble(f"""
-    {edition['index']}) ISBN: {edition['isbn']} ({edition['isbn_type']})
-       Edition: {edition['edition_info']}
-       Full Title: {edition['full_title']}
-""")
-            
-            chat_bubble(f"""
-    Select an edition (1-{len(editions)}) or 0 to cancel:
-""")
-            
-            try:
-                choice = int(user_input())
-                chat_bubble(f"{choice}", "right")
-                
-                if choice == 0:
-                    manage_catalog_menu()
-                    return
-                
-                if 1 <= choice <= len(editions):
-                    selected_edition = editions[choice - 1]
-                    
-                    chat_bubble("""
-    Enter Rent Price (€/day):                                                                                      
-    """)
-                    sys.stdout.write("\033[2F\033[27C")
-                    sys.stdout.flush()
-                    rent_price = input()
-                    print("\n\n")
-                    
-                    copy_data = {
-                        "rent_price": float(rent_price),
-                        "isbn": selected_edition['isbn'],
-                        "edition_info": selected_edition['edition_info']
-                    }
-                    
-                    copy_response = requests.post(
-                        f"{CATALOG_SERVICE}/books/{book_id}/copy/",
-                        json=copy_data,
-                        headers=current_session.get_session()
-                    )
-                    
-                    if copy_response.status_code == 201:
-                        copy_result = copy_response.json()
-                        chat_bubble(f"""
-    Copy Created Successfully!
-    
-    Copy ID: {copy_result.get('copy_id')}
-    ISBN: {selected_edition['isbn']}
-    Edition: {selected_edition['edition_info']}
-    Rent Price: €{rent_price}/day
-""")
-                    else:
-                        chat_bubble(message_formatter(copy_response))
-                else:
-                    chat_bubble("Invalid selection.")
-            except:
-                chat_bubble("Invalid input.")
-                
-        else:
-            try:
-                error_data = response.json()
-                chat_bubble(f"Error: {error_data.get('error', 'Unknown error')}")
-            except:
-                chat_bubble(f"Error: Request failed")
-    except Exception as e:
-        chat_bubble(f"Error: {str(e)}")
-    
+    data = {"rent_price": rent_price}
+    response = requests.post(f"{CATALOG_SERVICE}/books/{book_id}/copy/", json=data, headers=current_session.get_session())
+    chat_bubble(message_formatter(response))
     manage_catalog_menu()
 
 def remove_book():
@@ -1279,100 +1121,15 @@ def remove_book_copy():
     chat_bubble("""
     Remove Book Copy
     
-    Enter Book ID:                                                                                      
+    Enter Copy ID (book_id.copy_num):                       
     """)
-    sys.stdout.write("\033[2F\033[20C")
+    sys.stdout.write("\033[2F\033[40C")
     sys.stdout.flush()
-    book_id = input()
+    copy_id = input()
     print("\n\n")
     
-    if not book_id:
-        chat_bubble("Book ID cannot be empty.")
-        manage_catalog_menu()
-        return
-    
-    try:
-        book_response = requests.get(f"{CATALOG_SERVICE}/books/{book_id}")
-        if book_response.status_code != 200:
-            chat_bubble("Book not found.")
-            manage_catalog_menu()
-            return
-        
-        book = book_response.json()
-        
-        chat_bubble(f"""
-    Book: {book.get('title')}
-    Author: {book.get('author')}
-    
-    Fetching copies...
-""")
-        
-        copies_response = requests.get(f"{CATALOG_SERVICE}/books/{book_id}/copies")
-        
-        if copies_response.status_code != 200:
-            chat_bubble("No copies found for this book.")
-            manage_catalog_menu()
-            return
-        
-        copies_data = copies_response.json()
-        copies = copies_data.get('copies', [])
-        
-        if not copies:
-            chat_bubble("No copies found for this book.")
-            manage_catalog_menu()
-            return
-        
-        for idx, copy in enumerate(copies, 1):
-            status_display = "AVAILABLE" if copy['status'] == 'available' else "LOANED"
-            chat_bubble(f"""
-    {idx}) Copy ID: {copy['copy_id']}
-       ISBN: {copy.get('isbn', 'N/A')}
-       Edition: {copy.get('edition_info', 'Standard Edition')}
-       Price: €{copy['rent_price']}/day
-       Status: {status_display}
-""")
-        
-        chat_bubble(f"""
-    Select a copy to remove (1-{len(copies)}) or 0 to cancel:
-""")
-        
-        try:
-            choice = int(user_input())
-            chat_bubble(f"{choice}", "right")
-            
-            if choice == 0:
-                manage_catalog_menu()
-                return
-            
-            if 1 <= choice <= len(copies):
-                selected_copy = copies[choice - 1]
-                
-                chat_bubble(f"""
-    Are you sure you want to delete Copy {selected_copy['copy_id']}?
-    
-    Type 'yes' to confirm:                                                                                      
-    """)
-                sys.stdout.write("\033[2F\033[28C")
-                sys.stdout.flush()
-                confirmation = input()
-                print("\n\n")
-                
-                if confirmation.lower() == 'yes':
-                    delete_response = requests.delete(
-                        f"{CATALOG_SERVICE}/books/copy/{selected_copy['copy_id']}",
-                        headers=current_session.get_session()
-                    )
-                    chat_bubble(message_formatter(delete_response))
-                else:
-                    chat_bubble("Operation cancelled.")
-            else:
-                chat_bubble("Invalid selection.")
-        except:
-            chat_bubble("Invalid input.")
-    
-    except Exception as e:
-        chat_bubble(f"Error: {str(e)}")
-    
+    response = requests.delete(f"{CATALOG_SERVICE}/books/copy/{copy_id}", headers=current_session.get_session())
+    chat_bubble(message_formatter(response))
     manage_catalog_menu()
 
 def view_all_books():
@@ -1384,6 +1141,7 @@ def view_all_books():
     Book ID: {book.get('id')}
     Title: {book.get('title')}
     Author: {book.get('author')}
+    ISBN: {book.get('isbn', 'N/A')}
     Genre: {book.get('genre', 'N/A')}
     Publication Year: {book.get('publication_year', 'N/A')}
     Total Copies: {book.get('total_copies')}
@@ -1391,56 +1149,87 @@ def view_all_books():
 """)
     else:
         chat_bubble(message_formatter(response))
-    manage_catalog_menu()
+    if current_session.is_admin():
+        manage_catalog_menu()
+    else:
+        catalog_menu()
 
 def view_all_loans():
     chat_bubble("""
     View All Loans
-    
-    Enter User ID (or leave blank for all):                              
+
+    Enter User ID (or leave blank for all):
     """)
     sys.stdout.write("\033[2F\033[45C")
     sys.stdout.flush()
-    user_id = input()
+    user_id = input().strip()
     print("\n\n")
-    
-    if user_id:
-        response = requests.get(f"{LOAN_SERVICE}/loans/{user_id}", headers=current_session.get_session())
-    else:
-        # Esta funcionalidade precisa de um endpoint no backend para listar todos os loans
-        chat_bubble("Feature not yet implemented for all loans.")
-        main_menu_admin()
-        return
-    
-    if response.status_code == 200:
-        loans = response.json()
-        for loan in loans:
-            book_id = loan.get('copy_id').split('.')[0]
-            book_response = requests.get(f"{CATALOG_SERVICE}/books/{book_id}")
-            book_title = book_response.json().get('title') if book_response.status_code == 200 else "Unknown"
-            
-            chat_bubble(f"""
+
+    try:
+        if user_id:
+            response = requests.get(f"{LOAN_SERVICE}/loans/{user_id}", headers=current_session.get_session())
+
+            if response.status_code == 200:
+                loans = response.json()
+            elif response.status_code == 404:
+                chat_bubble("No loans found for this user.")
+                main_menu_admin()
+                return
+            else:
+                try:
+                    error_data = response.json()
+                    chat_bubble(f"Error: {error_data.get('error', 'Unknown error')}")
+                except:
+                    chat_bubble(f"Error: Request failed with status {response.status_code}")
+                main_menu_admin()
+                return
+        else:
+            response = requests.get(f"{LOAN_SERVICE}/loans/all", headers=current_session.get_session())
+
+            if response.status_code == 200:
+                loans = response.json()
+
+                if isinstance(loans, dict) and 'message' in loans:
+                    chat_bubble(loans['message'])
+                    main_menu_admin()
+                    return
+            else:
+                try:
+                    error_data = response.json()
+                    chat_bubble(f"Error: {error_data.get('error', 'Unknown error')}")
+                except:
+                    chat_bubble(f"Error: Request failed with status {response.status_code}")
+                main_menu_admin()
+                return
+
+        if loans and isinstance(loans, list):
+            for loan in loans:
+                book_id = loan.get('copy_id').split('.')[0]
+                book_response = requests.get(f"{CATALOG_SERVICE}/books/{book_id}")
+                book_title = book_response.json().get('title') if book_response.status_code == 200 else "Unknown"
+
+                user_id_loan = loan.get('user_id')
+                user_response = requests.get(f"{USER_SERVICE}/users/{user_id_loan}", headers=current_session.get_session())
+                username = user_response.json().get('name') if user_response.status_code == 200 else "Unknown"
+
+                chat_bubble(f"""
     Loan ID: {loan.get('loan_id')}
-    User ID: {loan.get('user_id')}
+    User ID: {user_id_loan}
+    Username: {username}
     Copy ID: {loan.get('copy_id')}
     Book: {book_title}
     Loan Date: {loan.get('loan_date')}
     Due Date: {loan.get('due_date')}
+    Return Date: {loan.get('return_date') if loan.get('return_date') else 'Not returned yet'}
     Status: {loan.get('status')}
 """)
-    else:
-        chat_bubble(message_formatter(response))
-    main_menu_admin()
-
-def payments_menu():
-    chat_bubble("""Payments Menu""")
-    try:
-        if current_session.is_admin():
-                payments_menu_admin()
         else:
-            payments_menu_user()
-    except:   
-         main_menu_user()
+            chat_bubble("No loans found.")
+
+    except Exception as e:
+        chat_bubble(f"Error: {str(e)}")
+
+    main_menu_admin()
 
 def payments_menu_user():
     """Menu de pagamentos para usuários regulares"""
@@ -1645,56 +1434,30 @@ def view_all_pending_payments():
     """)
     
     chat_bubble("""
-    Enter range of Payment IDs to check:
-    (Press Enter for defaults: 1 to 100)
-    From:                   
-    To:
+    View All Pending Payments
+    Enter User ID (or leave blank for all):
     """)
-    
-    try:
-       
-        sys.stdout.write("\033[2F\033[10C")
-        sys.stdout.flush()
-        from_raw = input().strip()
-        from_id = int(from_raw) if from_raw else 1
-        
-        
-        sys.stdout.write("\033[8C")
-        sys.stdout.flush()
-        to_raw = input().strip()
-        to_id = int(to_raw) if to_raw else 100
-        
-    except ValueError:
-        chat_bubble("Invalid input! Using default range 1-100.")
-        from_id, to_id = 1, 100
 
-    found_pending = False
-    
-    for payment_id in range(from_id, to_id + 1):
-        try:
-            response = requests.get(
-                f"{PAYMENT_SERVICE}/{payment_id}",
-                headers=current_session.get_session()
-            )
-            
-            if response.status_code == 200:
-                payment = response.json()
-                if payment.get('status') == 'pending':
-                    found_pending = True
-                    chat_bubble(f"""
-    Payment ID: {payment.get('payment_id')}
-    User ID: {payment.get('user_id')}
-    Loan ID: {payment.get('loan_id')}
-    Amount: €{payment.get('amount'):.2f}
-    Status: {payment.get('status').upper()}
-    ──────────────────────────────────────────
-                    """)
-        except Exception as e:
-            continue 
-    
-    if not found_pending:
-        chat_bubble(f"No pending payments found between {from_id} and {to_id}.")
-    
+    sys.stdout.write("\033[2F\033[45C")
+    sys.stdout.flush()
+    user_id = input()
+    print("\n\n")
+    if user_id:
+        response = requests.get(f"{PAYMENT_SERVICE}/getuser/{user_id}", headers=current_session.get_session())
+    else:
+        response = requests.get(f"{PAYMENT_SERVICE}/getall")
+    if response.status_code == 200:
+        payments = response.json()
+        for payment in payments:
+            chat_bubble(f"""
+Payment ID: {payment.get('payment_id')}
+User ID: {payment.get('user_id')}
+Loan ID: {payment.get('loan_id')}
+Amount: €{payment.get('amount'):.2f}
+Status: {payment.get('status').upper()}
+──────────────────────────────────────────
+                """)
+
     chat_bubble("Press Enter to return to menu...")
     input()
     payments_menu_admin()
@@ -1889,6 +1652,7 @@ def request_payment_admin():
 
 if __name__ == "__main__": 
     log_menu()  
+
 
 
 
