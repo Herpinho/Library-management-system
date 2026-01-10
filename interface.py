@@ -129,8 +129,6 @@ Login
         chat_bubble(message_formatter(response))
         return False
 
-    except Exception as e:
-        chat_bubble(f"Error \n          couldnt connect to the server {str(e)}")
 def log_menu():
     chat_bubble("""
     Welcome to the Library
@@ -624,83 +622,6 @@ def view_book_details():
         chat_bubble(message_formatter(response))
     
     catalog_menu()
-
-def payments_menu():
-    chat_bubble("""
-    Payments Menu
-            
-    Choose an option:
-        1) View Payment Details
-        2) View Payments by Loan
-        3) Back
-    """)
-    try:
-        option = int(user_input())
-        chat_bubble(f"{option}", "right")
-    except:
-        payments_menu()
-    match option:
-        case 1:
-            view_payment_details()
-        case 2:
-            view_payment_by_loan()
-        case 3:
-            main_menu_user()
-
-def view_payment_details():
-    chat_bubble("""
-    View Payment Details
-    
-    Enter Payment ID:                              
-    """)
-    sys.stdout.write("\033[2F\033[23C")
-    sys.stdout.flush()
-    payment_id = input()
-    print("\n\n")
-    
-    response = requests.get(f"{PAYMENT_SERVICE}/payments/{payment_id}", headers=current_session.get_session())
-    if response.status_code == 200:
-        payment = response.json()
-        chat_bubble(f"""
-    Payment Details
-    
-    Payment ID: {payment.get('payment_id')}
-    User ID: {payment.get('user_id')}
-    Loan ID: {payment.get('loan_id')}
-    Amount: €{payment.get('amount')}
-    Status: {payment.get('status')}
-    Transaction ID: {payment.get('transaction_id')}
-""")
-    else:
-        chat_bubble(message_formatter(response))
-    payments_menu()
-
-def view_payment_by_loan():
-    chat_bubble("""
-    View Payment by Loan
-    
-    Enter Loan ID:                              
-    """)
-    sys.stdout.write("\033[2F\033[20C")
-    sys.stdout.flush()
-    loan_id = input()
-    print("\n\n")
-    
-    response = requests.get(f"{PAYMENT_SERVICE}/payments/loan_lookup", json={"loan_id": loan_id}, headers=current_session.get_session())
-    if response.status_code == 200:
-        payment = response.json()
-        chat_bubble(f"""
-    Payment Details for Loan {loan_id}
-    
-    Payment ID: {payment.get('payment_id')}
-    User ID: {payment.get('user_id')}
-    Amount: €{payment.get('amount')}
-    Status: {payment.get('status')}
-    Transaction ID: {payment.get('transaction_id')}
-""")
-    else:
-        chat_bubble(message_formatter(response))
-    payments_menu()
 
 def account_settings():
     chat_bubble("""
@@ -1254,33 +1175,6 @@ def view_all_loans():
     except Exception as e:
         chat_bubble(f"Error: {str(e)}")
     
-    main_menu_admin()
-
-def view_all_payments():
-    chat_bubble("""
-    View All Payments
-    
-    Enter Payment ID to view details:                              
-    """)
-    sys.stdout.write("\033[2F\033[40C")
-    sys.stdout.flush()
-    payment_id = input()
-    print("\n\n")
-    
-    if payment_id:
-        response = requests.get(f"{PAYMENT_SERVICE}/payments/{payment_id}", headers=current_session.get_session())
-        if response.status_code == 200:
-            payment = response.json()
-            chat_bubble(f"""
-    Payment ID: {payment.get('payment_id')}
-    User ID: {payment.get('user_id')}
-    Loan ID: {payment.get('loan_id')}
-    Amount: €{payment.get('amount')}
-    Status: {payment.get('status')}
-    Transaction ID: {payment.get('transaction_id')}
-""")
-        else:
-            chat_bubble(message_formatter(response))
     main_menu_admin()
 
 if __name__ == "__main__": 
