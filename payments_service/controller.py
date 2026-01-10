@@ -138,7 +138,21 @@ def get_payment_by_loan_id():
         payment_obj = Payment(*row)
         return jsonify(payment_obj.to_json()),200
     return jsonify({"error":"loan id not found."}),404
-
+@payment_blueprint.route('/getuser/<int:user_id>', methods = ['GET'])
+def get_payment_by_user(user_id):
+    link = get_db_connection()
+    cursor = link.cursor() 
+    cursor.execute('SELECT * WHERE user_id = %s',(user_id))
+    rows = cursor.fetchall()
+    if not rows:
+        return jsonify({"error":"This user has no payments yet"}),40
+    payments = []
+    for row in rows:
+        payment_obj = Payment(row[0],row[1],row[2],row[3],row[4],row[5])
+        payments.append(payment_obj.to_json())
+    cursor.close()
+    link.close()
+    return jsonify(payments)
 @payment_blueprint.route('/request/<int:payment_id>', methods = ['POST'])
 def request_payment(payment_id):
     if check := admin_check(user_id=request.headers.get('User-ID'), password_hash=request.headers.get('Password-Hash')): return check
@@ -169,6 +183,20 @@ def request_payment(payment_id):
             return jsonify({"message":"Payment requested"})
         else:
             return jsonify({"error":"loan id not found."})
+    except Exception as e:
+        return jsonify({"error":str(e)}),500
+    finally:
+        cursor.close()
+        link.close()
+@payment_blueprint.route('/getall', methods = ['GET'])
+def get_all_payments():
+    link = get_db_connection()
+    cursor = link.cursor()
+    try:
+        cursor.execute('SELECT * FROM payments')
+        rows =  cursor.fetchall()
+        payments = [Payment(row[0],row[1],row[2],row[3],row[4],row[5]).to_json() for row in rows]
+        return jsonify(payments), 200
     except Exception as e:
         return jsonify({"error":str(e)}),500
     finally:
