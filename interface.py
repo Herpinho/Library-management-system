@@ -417,7 +417,81 @@ def catalog_menu():
         case 3:
             main_menu_user()
 
+<<<<<<< Updated upstream
 def add_book():
+=======
+def view_user_payments():
+    chat_bubble("""View pending payments from user""")
+    user_id = current_session.headers.get('User-ID')
+    
+    
+    response = requests.get(
+        f"{LOAN_SERVICE}/loans/{user_id}", 
+        headers=current_session.get_session()
+    )
+    
+    if response.status_code != 200:
+        chat_bubble(message_formatter(response))
+        payments_menu()
+        return
+    
+    loans = response.json()
+    pending_payments = []
+    
+    for loan in loans:
+        
+        payment_response = requests.get(
+            f"{PAYMENT_SERVICE}/payments/loan_lookup",
+            json={"loan_id": loan.get('loan_id')},
+            headers=current_session.get_session()
+        )
+        
+        if payment_response.status_code == 200:
+            payment = payment_response.json()
+            if payment.get('status') == 'pending':
+                
+                book_id = loan.get('copy_id').split('.')[0]
+                book_response = requests.get(f"{CATALOG_SERVICE}/books/{book_id}")
+                
+                if book_response.status_code == 200:
+                    book = book_response.json()
+                    pending_payments.append({
+                        'payment': payment,
+                        'loan': loan,
+                        'book': book
+                    })
+    
+    if not pending_payments:
+        chat_bubble("""No pending payments found!
+                       No payments due at the moment.""")
+    else:
+        for item in pending_payments:
+            payment = item['payment']
+            loan = item['loan']
+            book = item['book']
+            
+            chat_bubble(f"""
+    Payment ID: {payment.get('payment_id')}
+    ──────────────────────────────────────────
+    Book: {book.get('title')}
+    Book ID: {loan.get('copy_id').split('.')[0]}
+    Copy: {loan.get('copy_id').split('.')[1]}
+    
+    Loan ID: {loan.get('loan_id')}
+    Due Date: {loan.get('due_date')}
+    Status: {loan.get('status')}
+    
+    Amount to Pay: €{payment.get('amount'):.2f}
+    Payment Status: {payment.get('status').upper()}
+    ──────────────────────────────────────────
+            """)
+    
+    chat_bubble("""Press Enter to continue...""")
+    input()
+    payments_menu()
+
+def complete_user_payment():
+>>>>>>> Stashed changes
     chat_bubble("""
     Add New Book
     
