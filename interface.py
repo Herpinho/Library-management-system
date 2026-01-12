@@ -254,23 +254,160 @@ def loan_menu():
 def loan_book_menu():
     chat_bubble("""
     Loan a Book
-            
-    Fill the spaces bellow:
-        Copy ID:                   
-        Loan time:                
+    
+    Enter Book ID:                                                                                      
     """)
-    sys.stdout.write("\033[3F\033[19C")
+    sys.stdout.write("\033[2F\033[20C")
     sys.stdout.flush()
-    copyid = input()
-    sys.stdout.write("\033[21C")
-    sys.stdout.flush()
-    time = input()
-    if not time or not copyid:
-        chat_bubble("""Error:
-Insert valid numbers""")
-        loan_book_menu() 
-    response = requests.post(f"{LOAN_SERVICE}/loans", json={"copy_id" : copyid, "user_id": current_session.headers.get('User-ID'), "due_date": time, "status" : ""})
-    chat_bubble(message_formatter(response))  
+    book_id = input()
+    print("\n\n")
+    
+    if not book_id:
+        chat_bubble("Book ID cannot be empty.")
+        loan_menu()
+        return
+    
+    try:
+        book_response = requests.get(f"{CATALOG_SERVICE}/books/{book_id}")
+        if book_response.status_code != 200:
+            chat_bubble("Book not found.")
+            loan_menu()
+            return
+        
+        book = book_response.json()
+        
+        chat_bubble(f"""
+    Book: {book.get('title')}
+    Author: {book.get('author')}
+    
+    Searching for available copies...
+""")
+        
+        copies_response = requests.get(f"{CATALOG_SERVICE}/books/{book_id}/available_copies")
+        
+        if copies_response.status_code == 404:
+            chat_bubble("No available copies for this book.")
+            loan_menu()
+            return
+        
+        if copies_response.status_code != 200:
+            chat_bubble("Error fetching available copies.")
+            loan_menu()
+            return
+        
+        copies_data = copies_response.json()
+        copies = copies_data.get('copies', [])
+        
+        if not copies:
+            chat_bubble("No available copies for this book.")
+            loan_menu()
+            return
+        
+        for idx, copy in enumerate(copies, 1):
+            chat_bubble(f"""
+    {idx}) Copy ID: {copy['copy_id']}
+       ISBN: {copy['isbn']}
+       Edition: {copy['edition_info']}
+       Price: €{copy['rent_price']}/day
+""")
+        
+        chat_bubble(f"""
+    Select a copy (1-{len(copies)}) or 0 to cancel:
+""")
+        
+        try:
+            choice = int(user_input())
+            chat_bubble(f"{choice}", "right")
+            
+            if choice == 0:
+                loan_menu()
+                return
+            
+            if not (1 <= choice <= len(copies)):
+                chat_bubble("Invalid selection.")
+                loan_menu()
+                return
+            
+            selected_copy = copies[choice - 1]
+            
+            chat_bubble("""
+    Loan Duration
+    
+    Enter duration :                                                                                      
+    """)
+            sys.stdout.write("\033[2F\033[22C")
+            sys.stdout.flush()
+            loan_time = input()
+            print("\n\n")
+            
+            if not loan_time:
+                chat_bubble("Duration cannot be empty.")
+                loan_menu()
+                return
+            
+            parts = loan_time.strip().split()
+            if len(parts) != 2:
+                chat_bubble("Invalid format. Use: '1 week', '2 weeks', '5 days'")
+                loan_menu()
+                return
+            
+            try:
+                amount = int(parts[0])
+                unit = parts[1]
+            except:
+                chat_bubble("Invalid duration format.")
+                loan_menu()
+                return
+            
+            multipliers = {'month': 30, 'months': 30, 'week': 7, 'weeks': 7, 'day': 1, 'days': 1}
+            if unit.lower() not in multipliers:
+                chat_bubble("Invalid unit. Use: days, weeks, or months")
+                loan_menu()
+                return
+            
+            total_days = amount * multipliers[unit.lower()]
+            total_cost = total_days * selected_copy['rent_price']
+            
+            chat_bubble(f"""
+    Loan Summary
+    
+    Book: {book.get('title')}
+    Copy: {selected_copy['copy_id']}
+    Edition: {selected_copy['edition_info']}
+    Duration: {loan_time}
+    Total Cost: €{total_cost:.2f}
+    
+    Confirm? (yes/no):
+""")
+            
+            confirmation = user_input().strip().lower()
+            chat_bubble(f"{confirmation}", "right")
+            
+            if confirmation != 'yes':
+                chat_bubble("Loan cancelled.")
+                loan_menu()
+                return
+            
+            response = requests.post(
+                f"{LOAN_SERVICE}/loans",
+                json={
+                    "copy_id": selected_copy['copy_id'],
+                    "user_id": current_session.headers.get('User-ID'),
+                    "due_date": loan_time,
+                    "status": ""
+                }
+            )
+            
+            chat_bubble(message_formatter(response))
+            
+        except ValueError:
+            chat_bubble("Invalid input.")
+        except Exception as e:
+            chat_bubble(f"Error: {str(e)}")
+    
+    except Exception as e:
+        chat_bubble(f"Error: {str(e)}")
+    
     main_menu_user()
 def check_loan_menu():
     response = requests.get(f"{LOAN_SERVICE}/loans/{current_session.headers.get('User-ID')}", headers = current_session.get_session())
@@ -1484,6 +1621,170 @@ def request_payment_admin():
     
     chat_bubble(message_formatter(response))
     payments_menu_admin()
+
+def import_book_from_google():
+    chat_bubble("""
+    Import Book from Google Books
+    
+    Select Language:
+        1) English
+        2) Portuguese
+        3) Back
+    """)
+    try:
+        lang_option = int(user_input())
+        chat_bubble(f"{lang_option}", "right")
+    except:
+        import_book_from_google()
+        return
+    
+    if lang_option == 3:
+        manage_catalog_menu()
+        return
+    
+    language = ""
+    match lang_option:
+        case 1:
+            language = "en"
+        case 2:
+            language = "pt"
+        case _:
+            import_book_from_google()
+            return
+    
+    chat_bubble("""
+    Search by:
+        1) Title
+        2) Author
+        3) Back
+    """)
+    try:
+        option = int(user_input())
+        chat_bubble(f"{option}", "right")
+    except:
+        import_book_from_google()
+        return
+    
+    if option == 3:
+        import_book_from_google()
+        return
+    
+    search_type = ""
+    match option:
+        case 1:
+            search_type = "title"
+            chat_bubble("""
+    Search by Title
+    
+    Enter title:                                                                                      
+    """)
+            sys.stdout.write("\033[2F\033[19C")
+            sys.stdout.flush()
+        case 2:
+            search_type = "author"
+            chat_bubble("""
+    Search by Author
+    
+    Enter author:                                                                                      
+    """)
+            sys.stdout.write("\033[2F\033[20C")
+            sys.stdout.flush()
+        case _:
+            import_book_from_google()
+            return
+    
+    search_query = input()
+    print("\n\n")
+    
+    if not search_query:
+        chat_bubble("Search term cannot be empty.")
+        import_book_from_google()
+        return
+    
+    chat_bubble("Searching Google Books API...")
+    
+    try:
+        response = requests.post(
+            f"{CATALOG_SERVICE}/books/search_google",
+            json={"query": search_query, "type": search_type, "language": language},
+            headers=current_session.get_session()
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            results = data.get('results', [])
+            
+            if not results:
+                chat_bubble("No books found.")
+                import_book_from_google()
+                return
+            
+            for book in results:
+                chat_bubble(f"""
+    {book['index']}) {book['title']}
+       Author: {book['author']}
+       ISBN: {book.get('isbn', 'N/A')}
+       Genre: {book.get('genre', 'N/A')}
+       Year: {book.get('publication_year', 'N/A')}
+""")
+            
+            chat_bubble(f"""
+    Select a book to import (1-{len(results)}) or 0 to cancel:
+""")
+            
+            try:
+                choice = int(user_input())
+                chat_bubble(f"{choice}", "right")
+                
+                if choice == 0:
+                    import_book_from_google()
+                    return
+                
+                if 1 <= choice <= len(results):
+                    selected_book = results[choice - 1]
+                    
+                    import_response = requests.post(
+                        f"{CATALOG_SERVICE}/books/import_selected",
+                        json=selected_book,
+                        headers=current_session.get_session()
+                    )
+                    
+                    if import_response.status_code == 201:
+                        import_data = import_response.json()
+                        book = import_data.get('book', {})
+                        chat_bubble(f"""
+    Book Imported Successfully!
+    
+    ID: {import_data.get('id')}
+    Title: {book.get('title')}
+    Author: {book.get('author')}
+    ISBN: {book.get('isbn', 'N/A')}
+    Genre: {book.get('genre', 'N/A')}
+    Year: {book.get('publication_year', 'N/A')}
+""")
+                    else:
+                        try:
+                            error_data = import_response.json()
+                            chat_bubble(f"Error: {error_data.get('error', 'Unknown error')}")
+                        except:
+                            chat_bubble(f"Error: Request failed")
+                else:
+                    chat_bubble("Invalid selection.")
+            except:
+                chat_bubble("Invalid input.")
+                
+        elif response.status_code == 404:
+            chat_bubble("No books found matching your search.")
+        else:
+            try:
+                error_data = response.json()
+                chat_bubble(f"Error: {error_data.get('error', 'Unknown error')}")
+            except:
+                chat_bubble(f"Error: Request failed with status {response.status_code}")
+    except Exception as e:
+        chat_bubble(f"Error: {str(e)}")
+    
+    manage_catalog_menu()
 
 if __name__ == "__main__": 
     log_menu()  
