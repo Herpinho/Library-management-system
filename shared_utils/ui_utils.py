@@ -4,6 +4,7 @@ import json
 def chat_bubble(message, align="left"):
 
     big_line = 0
+    message = str(message)
     lines = message.strip().split('\n')
     for line in lines:
         if len(line) > big_line or big_line == 0:
