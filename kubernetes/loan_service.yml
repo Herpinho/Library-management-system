@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loan-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: loan-service
+  template:
+    metadata:
+      labels:
+        app: loan-service
+    spec:
+      containers:
+      - name: loan-service
+        image: herpinho/loan-service:latest
+        ports:
+        - containerPort: 5003
+        env:
+        - name: DB_NAME
+          value: loan_db
+        - name: DB_USER
+          value: user
+        - name: DB_PASSWORD
+          value: password
+        - name: DB_HOST
+          value: postgres-loan
+        - name: DB_PORT
+          value: "5432"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: loan-service
+spec:
+  selector:
+    app: loan-service
+  ports:
+    - protocol: TCP
+      port: 5003
+      targetPort: 5003
+  type: LoadBalancer

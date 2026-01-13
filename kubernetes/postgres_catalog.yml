@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-catalog
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-catalog
+  template:
+    metadata:
+      labels:
+        app: postgres-catalog
+    spec:
+      containers:
+      - name: postgres-catalog
+        image: postgres:15
+        ports:
+        - containerPort: 5432
+        env:
+        - name: postgres-USER
+          value: user
+        - name: postgres-PASSWORD
+          value: password
+        - name: postgres-DB
+          value: catalog_db
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-catalog
+spec:
+  selector:
+    app: postgres-catalog
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+  type: ClusterIP

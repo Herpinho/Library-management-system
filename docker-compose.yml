@@ -2,6 +2,7 @@ version: '3.8'
 
 services:
   user_service:
+    container_name: user_service
     build: 
       context: .
       dockerfile: user_service/Dockerfile
@@ -24,6 +25,7 @@ services:
 
   postgres_users:
     image: postgres:15
+    container_name: postgres_users
     volumes:
       - ./user_service/schema.sql:/docker-entrypoint-initdb.d/schema.sql
       - user_data:/var/lib/postgresql/data
@@ -38,6 +40,7 @@ services:
       - library-net
 
   catalog_service:
+    container_name: catalog_service
     build:
       context: .
       dockerfile: catalog_service/Dockerfile
@@ -57,6 +60,7 @@ services:
 
   postgres_catalog:
     image: postgres:15
+    container_name: postgres_catalog
     volumes:
       - ./catalog_service/schema.sql:/docker-entrypoint-initdb.d/schema.sql
       - catalog_data:/var/lib/postgresql/data
@@ -71,6 +75,7 @@ services:
       - library-net
 
   loan_service:
+    container_name: loan_service
     build:
       context: .
       dockerfile: loan_service/Dockerfile
@@ -90,6 +95,7 @@ services:
 
   postgres_loan:
     image: postgres:15
+    container_name: postgres_loan
     volumes:
       - ./loan_service/schema.sql:/docker-entrypoint-initdb.d/schema.sql
       - loan_data:/var/lib/postgresql/data
@@ -104,6 +110,7 @@ services:
       - library-net
 
   payments_service:
+    container_name: payments_service 
     build:
       context: .
       dockerfile: payments_service/Dockerfile
@@ -123,6 +130,7 @@ services:
 
   postgres_payments:
     image: postgres:15
+    container_name: postgres_payments
     volumes:
       - ./payments_service/schema.sql:/docker-entrypoint-initdb.d/schema.sql
       - payments_data:/var/lib/postgresql/data

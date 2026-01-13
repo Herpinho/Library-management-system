@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-loan
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-loan
+  template:
+    metadata:
+      labels:
+        app: postgres-loan
+    spec:
+      containers:
+      - name: postgres-loan
+        image: postgres:15
+        ports:
+        - containerPort: 5432
+        env:
+        - name: postgres-USER
+          value: user
+        - name: postgres-PASSWORD
+          value: password
+        - name: postgres-DB
+          value: loan_db
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-loan
+spec:
+  selector:
+    app: postgres-loan
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+  type: ClusterIP
