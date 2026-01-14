@@ -132,7 +132,7 @@ def delete_loan(loan_id):
         cursor.close()
         link.close()
 
-@loan_blueprint.route('/<int:loan_id>', methods = ['GET'])
+@loan_blueprint.route('/loan/<int:loan_id>', methods = ['GET'])
 def get_loan(loan_id):
     link = get_db_connection()
     cursor = link.cursor()

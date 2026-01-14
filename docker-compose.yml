@@ -28,7 +28,7 @@ services:
     container_name: postgres-users
     volumes:
       - ./user_service/schema.sql:/docker-entrypoint-initdb.d/schema.sql
-      - user_data:/var/lib/postgresql/data
+      - ./k8s_data/user:/var/lib/postgresql/data
     restart: always
     environment:
       POSTGRES_USER: ${USER_POSTGRES_USER}
@@ -63,7 +63,7 @@ services:
     container_name: postgres-catalog
     volumes:
       - ./catalog_service/schema.sql:/docker-entrypoint-initdb.d/schema.sql
-      - catalog_data:/var/lib/postgresql/data
+      - ./k8s_data/catalog:/var/lib/postgresql/data
     restart: always
     environment:
       POSTGRES_USER: ${CATALOG_POSTGRES_USER}
@@ -98,7 +98,7 @@ services:
     container_name: postgres-loan
     volumes:
       - ./loan_service/schema.sql:/docker-entrypoint-initdb.d/schema.sql
-      - loan_data:/var/lib/postgresql/data
+      - ./k8s_data/loan:/var/lib/postgresql/data
     restart: always
     environment:
       POSTGRES_USER: ${LOAN_POSTGRES_USER}
@@ -133,7 +133,7 @@ services:
     container_name: postgres-payments
     volumes:
       - ./payments_service/schema.sql:/docker-entrypoint-initdb.d/schema.sql
-      - payments_data:/var/lib/postgresql/data
+      - ./k8s_data/payments:/var/lib/postgresql/data
     restart: always
     environment:
       POSTGRES_USER: ${PAYMENTS_POSTGRES_USER}

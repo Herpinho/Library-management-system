@@ -14,7 +14,8 @@ spec:
     spec:
       containers:
       - name: user-service
-        image: herpinho/user_service:latest
+        image: user-service-image:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5001
         env:

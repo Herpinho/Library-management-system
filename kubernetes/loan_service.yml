@@ -14,7 +14,8 @@ spec:
     spec:
       containers:
       - name: loan-service
-        image: herpinho/loan_service:latest
+        image: loan-service-image:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5003
         env:

@@ -4,4 +4,5 @@ COPY payments_service/requirements.txt .
 RUN pip install -r requirements.txt
 COPY payments_service/ .
 COPY shared_utils/utils.py ./shared_utils/utils.py
+EXPOSE 5004
 CMD ["python", "app.py"]
