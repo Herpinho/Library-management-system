@@ -14,12 +14,12 @@ spec:
     spec:
       containers:
       - name: loan-service
-        image: herpinho/loan-service:latest
+        image: herpinho/loan_service:latest
         ports:
         - containerPort: 5003
         env:
         - name: DB_NAME
-          value: loan_db
+          value: loan-db
         - name: DB_USER
           value: user
         - name: DB_PASSWORD

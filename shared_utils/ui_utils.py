@@ -5,7 +5,7 @@ def chat_bubble(message, align="left"):
 
     big_line = 0
     message = str(message)
-    lines = message.strip().split('\n')
+    lines = message.split('\n')
     for line in lines:
         if len(line) > big_line or big_line == 0:
             big_line = len(line)
@@ -39,10 +39,8 @@ def message_formatter(response):
 
     for key,value in data.items():
         if key in ['message','error']:
-            return str(f"""
-                        {key.capitalize()}
-        {value}                            
-        """)
+            return str(f"""{key.capitalize()}:
+{value}""")
 
     
 def json_formatter(response):

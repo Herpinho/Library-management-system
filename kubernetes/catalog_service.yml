@@ -14,12 +14,12 @@ spec:
     spec:
       containers:
       - name: catalog-service
-        image: herpinho/catalog-service:latest
+        image: herpinho/catalog_service:latest
         ports:
         - containerPort: 5002
         env:
         - name: DB_NAME
-          value: catalog_db
+          value: catalog-db
         - name: DB_USER
           value: user
         - name: DB_PASSWORD

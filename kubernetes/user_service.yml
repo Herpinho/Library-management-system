@@ -14,12 +14,12 @@ spec:
     spec:
       containers:
       - name: user-service
-        image: ialmeidaaa/user-service:latest
+        image: herpinho/user_service:latest
         ports:
         - containerPort: 5001
         env:
         - name: DB_NAME
-          value: user_db
+          value: user-db
         - name: DB_USER
           value: user
         - name: DB_PASSWORD

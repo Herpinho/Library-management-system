@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from pathlib import Path
-from model import Book
+from model import Book,BookCopy
 from shared_utils.utils import *
 
 book_blueprint = Blueprint('book_blueprint', __name__)
@@ -10,8 +10,7 @@ import requests
 
 @book_blueprint.route('/import', methods=['POST'])
 def import_book_from_api():
-    if check := admin_check(user_id=request.headers.get('User-ID'), password_hash=request.headers.get('Password_Hash')): 
-        return check
+
     
     data = request.json
     search_query = data.get('query')  
@@ -218,8 +217,7 @@ def search_books():
 
 @book_blueprint.route('/search_google', methods=['POST'])
 def search_google_books():
-    if check := admin_check(user_id=request.headers.get('User-ID'), password_hash=request.headers.get('Password_Hash')): 
-        return check
+
     
     data = request.json
     search_query = data.get('query')
@@ -304,8 +302,7 @@ def search_google_books():
 
 @book_blueprint.route('/import_selected', methods=['POST'])
 def import_selected_book():
-    if check := admin_check(user_id=request.headers.get('User-ID'), password_hash=request.headers.get('Password_Hash')): 
-        return check
+
     
     data = request.json
     title = data.get('title')
@@ -346,8 +343,7 @@ def import_selected_book():
 
 @book_blueprint.route('/<int:book_id>/search_editions', methods=['GET'])
 def search_editions(book_id):
-    if check := admin_check(user_id=request.headers.get('User-ID'), password_hash=request.headers.get('Password_Hash')): 
-        return check
+
     
     book_obj = get_book_obj(book_id)
     if not book_obj:
@@ -444,8 +440,7 @@ def get_book_json(book_id):
 
 @book_blueprint.route('/', methods = ['POST'])
 def add_book():
-    if check := admin_check(user_id=request.headers.get('User-ID'), password_hash=request.headers.get('Password_Hash')): 
-        return check
+
     data = request.json
     link = get_db_connection()
     cursor = link.cursor()
@@ -465,8 +460,7 @@ def add_book():
 
 @book_blueprint.route('/<int:book_id>/copy/', methods =['POST'])
 def add_copy(book_id):
-    if check := admin_check(user_id=request.headers.get('User-ID'), password_hash=request.headers.get('Password_Hash')): 
-        return check
+
     link = get_db_connection()
     cursor = link.cursor()
     try:
@@ -514,8 +508,7 @@ def remove_copy(copy_id):
 
 @book_blueprint.route('/<int:book_id>', methods=['DELETE'])
 def delete_book(book_id):
-    if check := admin_check(user_id=request.headers.get('User-ID'), password_hash=request.headers.get('Password_Hash')): 
-        return check
+
     link = get_db_connection()
     cursor = link.cursor()
     try:
@@ -535,7 +528,6 @@ def delete_book(book_id):
 
 @book_blueprint.route('/copy/', methods = ['PUT'])
 def change_availability():
-    if check := admin_check(user_id=request.headers.get('User-ID'),password_hash=request.headers.get('Password_Hash')): return check
     data = request.json
     status = data.get('status')
     copy_id = data.get('copy_id')
@@ -609,10 +601,7 @@ def get_available_copies(book_id):
         link.close()
 
 @book_blueprint.route('/<int:book_id>/copies', methods=['GET'])
-def get_book_copies(book_id):
-    if check := admin_check(user_id=request.headers.get('User-ID'), password_hash=request.headers.get('Password_Hash')): 
-        return check
-    
+def get_book_copies(book_id): 
     link = get_db_connection()
     cursor = link.cursor()
     try:
@@ -630,16 +619,8 @@ def get_book_copies(book_id):
             return jsonify({"message": "No copies found"}), 404
         
         copies = []
-        for row in rows:
-            copies.append({
-                "copy_id": row[0],
-                "isbn": row[1] if row[1] else "N/A",
-                "edition_info": row[2] if row[2] else "Standard Edition",
-                "status": row[3],
-                "rent_price": float(row[4])
-            })
-        
-        return jsonify({"copies": copies}), 200
+        copies = [BookCopy(row[0],row[1],row[2],row[3],row[4]).to_json() for row in rows]
+        return jsonify(copies), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:

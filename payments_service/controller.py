@@ -2,10 +2,11 @@ from flask import Blueprint, request, jsonify
 from pathlib import Path
 from datetime import datetime
 import requests
+import os
 from shared_utils.utils import get_db_connection, admin_check
 from model import Payment
-CATALOG_SERVICE = "http://catalog_service:5002/books/"
-LOAN_SERVICE = "http://loan_service:5003/loans/"
+catalog_service = os.getenv("CATALOG_SERVICE", "http://catalog-service:5002")
+loan_service = os.getenv("LOAN_SERVICE","http://loan-service:5003")
 payment_blueprint = Blueprint('payment_blueprint', __name__)
 
 def get_payment(payment_id):
@@ -113,7 +114,7 @@ def complete_payment(payment_id):
         if data['transaction_id'] == "today":
             cursor.execute('UPDATE payments SET payment_status =%s, transaction_id = %s WHERE payment_id = %s', ('completed', datetime.now().timestamp(),payment_id))
             link.commit()
-            requests.put(f"{CATALOG_SERVICE}copy/",
+            requests.put(f"{catalog_service}/copy/",
             json={"status": 'available',"copy_id" : copy_id}, headers=headers)
             return jsonify({"message":f"payment {payment_id} completed."})
     except Exception as e:
@@ -167,12 +168,12 @@ def request_payment(payment_id):
         cursor_data = cursor.fetchone()
         loan_id = cursor_data[1]
         current_amount = cursor_data[2]
-        response = requests.get(f"{LOAN_SERVICE}loans/{loan_id}",headers=headers)
+        response = requests.get(f"{loan_service}/loans/{loan_id}",headers=headers)
         if response.status_code ==200:
             loan_data = response.json()
             copy_id = loan_data.get('copy_id')
             if loan_data.get('status') == 'overdue':
-                fine = requests.get(f"{LOAN_SERVICE}fines", 
+                fine = requests.get(f"{loan_service}/loans/fines", 
                                             headers=headers,
                                             json={
                                                         "loan_id" : loan_id,

@@ -1,20 +1,20 @@
 version: '3.8'
 
 services:
-  user_service:
-    container_name: user_service
+  user-service:
+    container_name: user-service
     build: 
       context: .
       dockerfile: user_service/Dockerfile
     ports:
       - "5001:5001"
     depends_on:
-      - postgres_users
+      - postgres-users
     environment:
       - DB_NAME=${USER_DB_NAME}
       - DB_USER=${USER_DB_USER}
       - DB_PASSWORD=${USER_DB_PASSWORD}
-      - DB_HOST=postgres_users
+      - DB_HOST=postgres-users
       - DB_PORT=${USER_DB_PORT}
       - USER_SERVICE=${USER_SERVICE}
       - CATALOG_SERVICE=${CATALOG_SERVICE}
@@ -23,9 +23,9 @@ services:
     networks:
       - library-net
 
-  postgres_users:
+  postgres-users:
     image: postgres:15
-    container_name: postgres_users
+    container_name: postgres-users
     volumes:
       - ./user_service/schema.sql:/docker-entrypoint-initdb.d/schema.sql
       - user_data:/var/lib/postgresql/data
@@ -39,28 +39,28 @@ services:
     networks:
       - library-net
 
-  catalog_service:
-    container_name: catalog_service
+  catalog-service:
+    container_name: catalog-service
     build:
       context: .
       dockerfile: catalog_service/Dockerfile
     ports:
       - "5002:5002"
     depends_on:
-      - postgres_catalog
+      - postgres-catalog
     environment:
       - DB_NAME=${CATALOG_DB_NAME}
       - DB_USER=${CATALOG_DB_USER}
       - DB_PASSWORD=${CATALOG_DB_PASSWORD}
-      - DB_HOST=postgres_catalog
+      - DB_HOST=postgres-catalog
       - DB_PORT=${CATALOG_DB_PORT}
       - CATALOG_SERVICE=${CATALOG_SERVICE}
     networks:
       - library-net
 
-  postgres_catalog:
+  postgres-catalog:
     image: postgres:15
-    container_name: postgres_catalog
+    container_name: postgres-catalog
     volumes:
       - ./catalog_service/schema.sql:/docker-entrypoint-initdb.d/schema.sql
       - catalog_data:/var/lib/postgresql/data
@@ -74,28 +74,28 @@ services:
     networks:
       - library-net
 
-  loan_service:
-    container_name: loan_service
+  loan-service:
+    container_name: loan-service
     build:
       context: .
       dockerfile: loan_service/Dockerfile
     ports:
       - "5003:5003"
     depends_on:
-      - postgres_loan
+      - postgres-loan
     environment:
       - DB_NAME=${LOAN_DB_NAME}
       - DB_USER=${LOAN_DB_USER}
       - DB_PASSWORD=${LOAN_DB_PASSWORD}
-      - DB_HOST=postgres_loan
+      - DB_HOST=postgres-loan
       - DB_PORT=${LOAN_DB_PORT}
       - LOAN_SERVICE=${LOAN_SERVICE}
     networks:
       - library-net
 
-  postgres_loan:
+  postgres-loan:
     image: postgres:15
-    container_name: postgres_loan
+    container_name: postgres-loan
     volumes:
       - ./loan_service/schema.sql:/docker-entrypoint-initdb.d/schema.sql
       - loan_data:/var/lib/postgresql/data
@@ -109,28 +109,28 @@ services:
     networks:
       - library-net
 
-  payments_service:
-    container_name: payments_service 
+  payments-service:
+    container_name: payments-service 
     build:
       context: .
       dockerfile: payments_service/Dockerfile
     ports:
       - "5004:5004"
     depends_on:
-      - postgres_payments
+      - postgres-payments
     environment:
       - DB_NAME=${PAYMENTS_DB_NAME}
       - DB_USER=${PAYMENTS_DB_USER}
       - DB_PASSWORD=${PAYMENTS_DB_PASSWORD}
-      - DB_HOST=postgres_payments
+      - DB_HOST=postgres-payments
       - DB_PORT=${PAYMENTS_DB_PORT}
       - PAYMENT_SERVICE=${PAYMENT_SERVICE}
     networks:
       - library-net
 
-  postgres_payments:
+  postgres-payments:
     image: postgres:15
-    container_name: postgres_payments
+    container_name: postgres-payments
     volumes:
       - ./payments_service/schema.sql:/docker-entrypoint-initdb.d/schema.sql
       - payments_data:/var/lib/postgresql/data

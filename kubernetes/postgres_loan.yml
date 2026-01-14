@@ -18,11 +18,11 @@ spec:
         ports:
         - containerPort: 5432
         env:
-        - name: postgres-USER
+        - name: POSTGRES_USER
           value: user
-        - name: postgres-PASSWORD
+        - name: POSTGRES_PASSWORD
           value: password
-        - name: postgres-DB
+        - name: POSTGRES_DB
           value: loan_db
 ---
 apiVersion: v1

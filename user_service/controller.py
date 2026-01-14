@@ -118,7 +118,6 @@ def get_all_users():
 
 @user_blueprint.route('/', methods = ['PUT'])
 def modify_user():
-    if check := admin_check(user_id=request.headers.get('User-ID'), password_hash=request.headers.get('Password-Hash')): return check
     link = get_db_connection()
     cursor = link.cursor()
     data = request.json

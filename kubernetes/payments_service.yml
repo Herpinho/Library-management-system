@@ -14,12 +14,12 @@ spec:
     spec:
       containers:
       - name: payments-service
-        image: herpinho/payments-service:latest
+        image: herpinho/payments_service:latest
         ports:
         - containerPort: 5004
         env:
         - name: DB_NAME
-          value: payments_db
+          value: payments-db
         - name: DB_USER
           value: user
         - name: DB_PASSWORD
