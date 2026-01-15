@@ -1185,15 +1185,96 @@ This will also delete ALL copies of this book!
 
 def remove_book_copy():
     chat_bubble("""Remove Book Copy
-    
-    Enter Copy ID (book_id.copy_num):                      """)
-    sys.stdout.write("\033[2F\033[40C")
+
+    Enter Book ID:             """)
+    sys.stdout.write("\033[2F\033[20C")
     sys.stdout.flush()
-    copy_id = input()
+    book_id = input()
     print("\n\n")
-    
-    response = requests.delete(f"{catalog_service}/books/copy/{copy_id}", headers=current_session.get_session())
-    chat_bubble(message_formatter(response))
+
+    if not book_id:
+        chat_bubble("Book ID cannot be empty.")
+        manage_catalog_menu()
+        return
+
+    try:
+        book_response = requests.get(f"{catalog_service}/books/{book_id}")
+        if book_response.status_code != 200:
+            chat_bubble("Book not found.")
+            manage_catalog_menu()
+            return
+
+        book = book_response.json()
+
+        chat_bubble(f"""
+    Book: {book.get('title')}
+    Author: {book.get('author')}
+
+    Fetching copies...
+""")
+
+        copies_response = requests.get(f"{catalog_service}/books/{book_id}/copies")
+
+        if copies_response.status_code != 200:
+            chat_bubble("No copies found for this book.")
+            manage_catalog_menu()
+            return
+
+        copies_data = copies_response.json()
+        copies = copies_data.get('copies', [])
+
+        if not copies:
+            chat_bubble("No copies found for this book.")
+            manage_catalog_menu()
+            return
+
+        for idx, copy in enumerate(copies, 1):
+            status_display = "AVAILABLE" if copy['status'] == 'available' else "LOANED"
+            chat_bubble(
+                f"""    {idx}) Copy ID: {copy['copy_id']}
+    ISBN: {copy.get('isbn', 'N/A')}
+    Edition: {copy.get('edition_info', 'Standard Edition')}
+    Price: €{copy['rent_price']}/day
+    Status: {status_display}
+""")
+
+        chat_bubble(f"""Select a copy to remove (1-{len(copies)}) or 0 to cancel:""")
+
+        try:
+            choice = int(user_input())
+            chat_bubble(f"{choice}", "right")
+
+            if choice == 0:
+                manage_catalog_menu()
+                return
+
+            if 1 <= choice <= len(copies):
+                selected_copy = copies[choice - 1]
+
+                chat_bubble(f"""Are you sure you want to delete Copy {selected_copy['copy_id']}?
+
+        Type 'yes' to confirm:""")
+                sys.stdout.write("\033[2F\033[28C")
+                sys.stdout.flush()
+                confirmation = input()
+                print("\n\n")
+
+                if confirmation.lower() == 'yes':
+                    delete_response = requests.delete(
+                        f"{catalog_service}/books/copy/{selected_copy['copy_id']}",
+                        headers=current_session.get_session()
+                    )
+                    chat_bubble(message_formatter(delete_response))
+                else:
+                    chat_bubble("Operation cancelled.")
+            else:
+                chat_bubble("Invalid selection.")
+        except:
+            chat_bubble("Invalid input.")
+
+    except Exception as e:
+        chat_bubble(f"Error: {str(e)}")
+
     manage_catalog_menu()
 
 def view_all_books(admin):
@@ -1527,34 +1608,45 @@ def complete_user_payment(payment_id=None):
     
     payment_data = check_payment.json()
     
-    chat_bubble(f"""Confirm Payment
-    
-    Payment ID: {payment_data.get('payment_id')}
-    Amount: £{payment_data.get('amount'):.2f}
-    
-    Do you want to complete this payment?
-        1) Yes
-        2) No    """)
-    
-    try:
-        confirm = int(user_input())
-        chat_bubble(F"{confirm}","right")
-    except:
-        complete_user_payment()
-        return
-    
-    if confirm == 1:
-        response = requests.put(
-            f"{payment_service}/payments/{payment_id}/complete",
-            json={"transaction_id": "today"},
-            headers=current_session.get_session()
-        )
-        
-        if response.status_code == 200:
-            chat_bubble("""Payment Completed Successfully!""")
+    if int(payment_data.get('user_id')) == int(current_session.get_session().get('User-ID')):
+        loan_response = requests.get(f"{loan_service}/loans/loan/{payment_data.get('loan_id')}").json()
+        if loan_response.get('status')!='active':
+            chat_bubble(f"""Confirm Payment
+            
+            Payment ID: {payment_data.get('payment_id')}
+            Amount: £{payment_data.get('amount'):.2f}
+            
+            Do you want to complete this payment?
+                1) Yes
+                2) No    """)
+            
+            try:
+                confirm = int(user_input())
+                chat_bubble(F"{confirm}","right")
+            except:
+                complete_user_payment()
+                return
+            
+            if confirm == 1:
+                response = requests.put(
+                    f"{payment_service}/payments/{payment_id}/complete",
+                    json={"transaction_id": "today"},
+                    headers=current_session.get_session()
+                )
+                
+                if response.status_code == 200:
+                    chat_bubble("""Payment Completed Successfully!""")
+                else:
+                    chat_bubble(message_formatter(response))
+            payments_menu()
         else:
-            chat_bubble(message_formatter(response))
-    payments_menu()
+            print('\n\n\n')
+            chat_bubble("The Loan associated with this payment hasn't been completed.")
+            complete_user_payment()
+    else:
+        print('\n\n\n')
+        chat_bubble("The inserted payment ID belongs to a different user.")
+        complete_user_payment()
 
 
 def payments_menu_admin():
@@ -1708,9 +1800,9 @@ def create_payment_admin():
     payments_menu_admin()
 
 def complete_payment_admin():
-    chat_bubble("""Complete Payment""")
+    chat_bubble("""Complete Payment
+    Enter Payment ID: """)
     
-    print("Enter Payment ID: ", end="")
     payment_id = input()
     
     response = requests.put(
@@ -1786,8 +1878,15 @@ def request_payment_admin():
         f"{payment_service}/payments/request/{payment_id}",
         headers=current_session.get_session()
     )
-    
+    payment_data = requests.get(f"{payment_service}/payments/{payment_id}").json()
+
     chat_bubble(message_formatter(response))
+    chat_bubble(f"""Payment ID: {payment_data.get('payment_id')}
+    User ID: {payment_data.get('user_id')}
+    Loan ID: {payment_data.get('loan_id')}
+    Amount: €{payment_data.get('amount'):.2f}
+    Status: {payment_data.get('status').upper()}
+    Transaction ID: {payment_data.get('transaction_id') or 'N/A'}""")
     payments_menu_admin()
 def import_book_from_google():
     chat_bubble("""Import Book from Google Books

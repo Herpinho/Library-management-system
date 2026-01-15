@@ -168,7 +168,7 @@ def request_payment(payment_id):
         cursor_data = cursor.fetchone()
         loan_id = cursor_data[1]
         current_amount = cursor_data[2]
-        response = requests.get(f"{loan_service}/loans/{loan_id}",headers=headers)
+        response = requests.get(f"{loan_service}/loans/loan/{loan_id}",headers=headers)
         if response.status_code ==200:
             loan_data = response.json()
             copy_id = loan_data.get('copy_id')
